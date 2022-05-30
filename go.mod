@@ -1,4 +1,4 @@
-module regex
+module github.com/ApsieSoft/go-regex
 
 go 1.13
 
