@@ -34,6 +34,9 @@ regex.RepFunc(myByteArray, `(?flags)re(capture group)`, func(data func(int) []by
   data(1) // get the first capture group
 
   return []byte("")
+
+  // if the last option is true, returning nil will stop the loop early
+  return nil
 }, true /* optional: if true, will not process a return output */)
 
 // run a simple light replace function

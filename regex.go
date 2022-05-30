@@ -98,8 +98,14 @@ func RepFunc(str []byte, re string, rep func(func(int) []byte) []byte, blank ...
 		m := reg.Matcher(v, 0)
 
 		if len(blank) != 0 {
+			gCache := map[int][]byte{}
 			r := rep(func(g int) []byte {
-				return m.Group(g)
+				if v, ok := gCache[g]; ok {
+					return v
+				}
+				v := m.Group(g)
+				gCache[g] = v
+				return v
 			})
 
 			if r == nil {
@@ -113,8 +119,14 @@ func RepFunc(str []byte, re string, rep func(func(int) []byte) []byte, blank ...
 			}
 			trim = pos[1]
 
+			gCache := map[int][]byte{}
 			r := rep(func(g int) []byte {
-				return m.Group(g)
+				if v, ok := gCache[g]; ok {
+					return v
+				}
+				v := m.Group(g)
+				gCache[g] = v
+				return v
 			})
 
 			if r == nil {
