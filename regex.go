@@ -62,7 +62,7 @@ func Compile(re string) Regexp {
 
 		for i := len(ind) - 1; i >= 0; i-- {
 			if r[ind[i][1]-1] == '\'' {
-				r[ind[i][0]-1] = 0
+				r[ind[i][0]] = 0
 				r[ind[i][1]-1] = '`'
 			}
 		}
@@ -171,7 +171,6 @@ func Split(str []byte, re string) [][]byte {
 	for _, pos := range ind {
 		v := str[pos[0]:pos[1]]
 		m := reg.Matcher(v, 0)
-		_ = m
 
 		if trim == 0 {
 			res = append(res, str[:pos[0]])
