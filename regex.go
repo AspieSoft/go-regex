@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/GRbit/go-pcre"
 )
@@ -59,6 +60,38 @@ func JoinBytes(bytes ...interface{}) []byte {
 	return res
 }
 
+var writingCache int = 0
+
+func setCache(re string, reg pcre.Regexp){
+	for writingCache != 0 {
+		time.Sleep(1000)
+	}
+
+	writingCache++
+
+	if writingCache != 1 {
+		writingCache--
+		go setCache(re, reg)
+		return
+	}
+
+	regCache[re] = reg
+
+	writingCache--
+}
+
+func getCache(re string) (pcre.Regexp, bool) {
+	if writingCache != 0 {
+		return pcre.Regexp{}, false
+	}
+	
+	if val, ok := regCache[re]; ok {
+		return val, true
+	}
+
+	return pcre.Regexp{}, false
+}
+
 func Compile(re string) Regexp {
 	if strings.Contains(re, `\'`) {
 		r := []byte(re)
@@ -79,12 +112,13 @@ func Compile(re string) Regexp {
 		re = regReReplaceComment.ReplaceAllString(re, ``, 0)
 	}
 
-	if val, ok := regCache[re]; ok {
+	if val, ok := getCache(re); ok {
 		return val
 	} else {
 		// reg := pcre.MustCompileJIT(re, pcre.UTF8, pcre.CONFIG_JIT)
 		reg := pcre.MustCompile(re, pcre.UTF8)
-		regCache[re] = reg
+		// regCache[re] = reg
+		go setCache(re, reg)
 		return reg
 	}
 }

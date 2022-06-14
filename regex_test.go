@@ -3,7 +3,9 @@ package regex
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 )
 
 func TestCompile(t *testing.T) {
@@ -29,3 +31,15 @@ func TestReplace(t *testing.T) {
 	check("string with `block` quotes", `\'.*?\'`, "'single'", "string with 'single' quotes")
 }
 
+func TestConcurent(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		go (func(){
+			res := RepFunc([]byte("test"), `(t)`, func(data func(int) []byte) []byte {
+				return data(1)
+			})
+			fmt.Println(string(res))
+		})()
+	}
+
+	time.Sleep(1000000 * 1000) // 1 second
+}
