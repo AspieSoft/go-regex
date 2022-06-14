@@ -50,6 +50,10 @@ func JoinBytes(bytes ...interface{}) []byte {
 			res = append(res, []byte(b.(string))...)
 		case varType["int"]:
 			res = append(res, []byte(strconv.Itoa(b.(int)))...)
+		case varType["float64"]:
+			res = append(res, []byte(strconv.FormatFloat(b.(float64), 'f', -1, 64))...)
+		case varType["float32"]:
+			res = append(res, []byte(strconv.FormatFloat(float64(b.(float32)), 'f', -1, 32))...)
 		}
 	}
 	return res
