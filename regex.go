@@ -69,6 +69,8 @@ func setCache(re string, reg pcre.Regexp){
 
 	writingCache++
 
+	time.Sleep(1000)
+
 	if writingCache != 1 {
 		writingCache--
 		go setCache(re, reg)

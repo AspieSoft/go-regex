@@ -33,13 +33,15 @@ func TestReplace(t *testing.T) {
 
 func TestConcurent(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		go (func(){
-			res := RepFunc([]byte("test"), `(t)`, func(data func(int) []byte) []byte {
-				return data(1)
-			})
-			fmt.Println(string(res))
-		})()
-	}
+		for i := 0; i < 10; i++ {
+			go (func(){
+				res := RepFunc([]byte("test"), `(t)`, func(data func(int) []byte) []byte {
+					return data(1)
+				})
+				fmt.Println(string(res))
+			})()
+		}
 
-	time.Sleep(1000000 * 1000) // 1 second
+		time.Sleep(1000000 * 1000) // 1 second
+	}
 }
