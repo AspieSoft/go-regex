@@ -187,6 +187,69 @@ func RepFunc(str []byte, re string, rep func(func(int) []byte) []byte, blank ...
 	return res
 }
 
+func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blank ...bool) []byte {
+	reg := Compile(re)
+
+	// ind := reg.FindAllIndex(str, pcre.UTF8)
+	// ind := reg.FindAllIndex(str, 0)
+	pos := reg.FindIndex(str, 0)
+
+	res := []byte{}
+	trim := 0
+	// for _, pos := range ind {
+		v := str[pos[0]:pos[1]]
+		m := reg.Matcher(v, 0)
+
+		if len(blank) != 0 {
+			gCache := map[int][]byte{}
+			r := rep(func(g int) []byte {
+				if v, ok := gCache[g]; ok {
+					return v
+				}
+				v := m.Group(g)
+				gCache[g] = v
+				return v
+			})
+
+			if r == nil {
+				return nil
+			}
+		} else {
+			if trim == 0 {
+				res = append(res, str[:pos[0]]...)
+			} else {
+				res = append(res, str[trim:pos[0]]...)
+			}
+			trim = pos[1]
+
+			gCache := map[int][]byte{}
+			r := rep(func(g int) []byte {
+				if v, ok := gCache[g]; ok {
+					return v
+				}
+				v := m.Group(g)
+				gCache[g] = v
+				return v
+			})
+
+			if r == nil {
+				res = append(res, str[trim:]...)
+				return res
+			}
+
+			res = append(res, r...)
+		}
+	// }
+
+	if len(blank) != 0 {
+		return nil
+	}
+
+	res = append(res, str[trim:]...)
+
+	return res
+}
+
 func RepStr(str []byte, re string, rep []byte) []byte {
 	reg := Compile(re)
 
