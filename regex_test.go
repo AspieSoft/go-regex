@@ -3,7 +3,6 @@ package regex
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 )
@@ -48,15 +47,28 @@ func TestReplaceFirst(t *testing.T) {
 
 func TestConcurent(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		for i := 0; i < 10; i++ {
+		for j := 0; j < 10; j++ {
 			go (func() {
 				res := RepFunc([]byte("test"), `(t)`, func(data func(int) []byte) []byte {
 					return data(1)
 				})
-				fmt.Println(string(res))
+				_ = res
+				time.Sleep(10)
 			})()
 		}
 
 		time.Sleep(1000000 * 1000) // 1 second
 	}
+}
+
+func TestCache(t *testing.T) {
+	var check = func(s string, re, r string, e string) {
+		res := RepStr([]byte(s), re, []byte(r))
+		if !bytes.Equal(res, []byte(e)) {
+			t.Error(res, errors.New("result does not match expected result"))
+		}
+	}
+
+	check("this is a test", `\sis\s`, " was ", "this was a test")
+	check("this is a test", `\sis\s`, " was ", "this was a test")
 }

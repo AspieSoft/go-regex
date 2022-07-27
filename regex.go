@@ -8,18 +8,33 @@ import (
 	"time"
 
 	"github.com/GRbit/go-pcre"
+	"github.com/jellydator/ttlcache/v3"
 )
 
 type Regexp = pcre.Regexp
-
-var regCache map[string]pcre.Regexp = map[string]pcre.Regexp{}
 
 var regReReplaceQuote pcre.Regexp = pcre.MustCompileJIT(`\\[\\']`, pcre.UTF8, pcre.CONFIG_JIT)
 var regReReplaceComment pcre.Regexp = pcre.MustCompileJIT(`\(\?\#.*?\)`, pcre.UTF8, pcre.CONFIG_JIT)
 
 var varType map[string]reflect.Type
 
+var cache *ttlcache.Cache[string, pcre.Regexp]
+
 func init() {
+
+	cache = ttlcache.New[string, pcre.Regexp](
+		ttlcache.WithTTL[string, pcre.Regexp](12 * time.Hour),
+	)
+
+	go cache.Start()
+
+	go (func() {
+		for {
+			time.Sleep(4 * time.Hour)
+			cache.DeleteExpired()
+		}
+	})()
+
 	varType = map[string]reflect.Type{}
 
 	varType["array"] = reflect.TypeOf([]interface{}{})
@@ -60,35 +75,15 @@ func JoinBytes(bytes ...interface{}) []byte {
 	return res
 }
 
-var writingCache int = 0
-
-func setCache(re string, reg pcre.Regexp){
-	for writingCache != 0 {
-		time.Sleep(1000)
-	}
-
-	writingCache++
-
-	time.Sleep(1000)
-
-	if writingCache != 1 {
-		writingCache--
-		go setCache(re, reg)
-		return
-	}
-
-	regCache[re] = reg
-
-	writingCache--
+func setCache(re string, reg pcre.Regexp) {
+	cache.Set(re, reg, ttlcache.DefaultTTL)
 }
 
 func getCache(re string) (pcre.Regexp, bool) {
-	if writingCache != 0 {
-		return pcre.Regexp{}, false
-	}
-	
-	if val, ok := regCache[re]; ok {
-		return val, true
+	val := cache.Get(re)
+
+	if val != nil {
+		return val.Value(), true
 	}
 
 	return pcre.Regexp{}, false
@@ -119,7 +114,6 @@ func Compile(re string) Regexp {
 	} else {
 		// reg := pcre.MustCompileJIT(re, pcre.UTF8, pcre.CONFIG_JIT)
 		reg := pcre.MustCompile(re, pcre.UTF8)
-		// regCache[re] = reg
 		go setCache(re, reg)
 		return reg
 	}
@@ -197,48 +191,48 @@ func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blan
 	res := []byte{}
 	trim := 0
 	// for _, pos := range ind {
-		v := str[pos[0]:pos[1]]
-		m := reg.Matcher(v, 0)
+	v := str[pos[0]:pos[1]]
+	m := reg.Matcher(v, 0)
 
-		if len(blank) != 0 {
-			gCache := map[int][]byte{}
-			r := rep(func(g int) []byte {
-				if v, ok := gCache[g]; ok {
-					return v
-				}
-				v := m.Group(g)
-				gCache[g] = v
+	if len(blank) != 0 {
+		gCache := map[int][]byte{}
+		r := rep(func(g int) []byte {
+			if v, ok := gCache[g]; ok {
 				return v
-			})
-
-			if r == nil {
-				return nil
 			}
-		} else {
-			if trim == 0 {
-				res = append(res, str[:pos[0]]...)
-			} else {
-				res = append(res, str[trim:pos[0]]...)
-			}
-			trim = pos[1]
+			v := m.Group(g)
+			gCache[g] = v
+			return v
+		})
 
-			gCache := map[int][]byte{}
-			r := rep(func(g int) []byte {
-				if v, ok := gCache[g]; ok {
-					return v
-				}
-				v := m.Group(g)
-				gCache[g] = v
-				return v
-			})
-
-			if r == nil {
-				res = append(res, str[trim:]...)
-				return res
-			}
-
-			res = append(res, r...)
+		if r == nil {
+			return nil
 		}
+	} else {
+		if trim == 0 {
+			res = append(res, str[:pos[0]]...)
+		} else {
+			res = append(res, str[trim:pos[0]]...)
+		}
+		trim = pos[1]
+
+		gCache := map[int][]byte{}
+		r := rep(func(g int) []byte {
+			if v, ok := gCache[g]; ok {
+				return v
+			}
+			v := m.Group(g)
+			gCache[g] = v
+			return v
+		})
+
+		if r == nil {
+			res = append(res, str[trim:]...)
+			return res
+		}
+
+		res = append(res, r...)
+	}
 	// }
 
 	if len(blank) != 0 {
