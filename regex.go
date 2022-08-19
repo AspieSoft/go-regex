@@ -47,6 +47,7 @@ func init() {
 	varType["string"] = reflect.TypeOf("")
 	varType["byteArray"] = reflect.TypeOf([]byte{})
 	varType["byte"] = reflect.TypeOf([]byte{0}[0])
+	varType["byteArrayArray"] = reflect.TypeOf([][]byte{})
 
 	// int32 returned instead of byte
 	varType["int32"] = reflect.TypeOf(' ')
@@ -64,6 +65,10 @@ func JoinBytes(bytes ...interface{}) []byte {
 			res = append(res, byte(b.(int32)))
 		case varType["string"]:
 			res = append(res, []byte(b.(string))...)
+		case varType["byteArrayArray"]:
+			for _, v := range b.([][]byte) {
+				res = append(res, v...)
+			}
 		case varType["int"]:
 			res = append(res, []byte(strconv.Itoa(b.(int)))...)
 		case varType["float64"]:
