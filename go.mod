@@ -3,7 +3,7 @@ module github.com/AspieSoft/go-regex
 go 1.18
 
 require (
-	github.com/AspieSoft/go-ttlcache v1.0.0
+	github.com/AspieSoft/go-ttlcache v1.0.1
 	github.com/GRbit/go-pcre v1.0.0
 )
 

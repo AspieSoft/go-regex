@@ -1,7 +1,7 @@
 github.com/AspieSoft/go-syncterval v1.0.2 h1:kIFS/ZHrySSLonCGN6lcpcwOKST3DmQfxIfqtcoj/lk=
 github.com/AspieSoft/go-syncterval v1.0.2/go.mod h1:KDPQRl3rF9/SDALWisEz2eb8APyFpRL0ufJY8QaHuKY=
-github.com/AspieSoft/go-ttlcache v1.0.0 h1:bw9nR+8LcAUxqhVWU8k/Mqg6dNAKbpN+H0O5YZ4H0YE=
-github.com/AspieSoft/go-ttlcache v1.0.0/go.mod h1:+bmizNKJhoosFnjMHjxadfTMQEhvrzAZIJugc5nJuhk=
+github.com/AspieSoft/go-ttlcache v1.0.1 h1:ceYerlpAJGyecQ40olJSYIweAMdN4t6zHwujh1+Kndw=
+github.com/AspieSoft/go-ttlcache v1.0.1/go.mod h1:+bmizNKJhoosFnjMHjxadfTMQEhvrzAZIJugc5nJuhk=
 github.com/GRbit/go-pcre v1.0.0 h1:Qv/YZ/tr436mFgep3Y0WAzKOZvAKGOGD0cAMwUcsEJo=
 github.com/GRbit/go-pcre v1.0.0/go.mod h1:OuMGyux1WcDrKNwDn9MyQLa2kzxQS/xFyVqXFZ/ay0I=
 github.com/alphadose/haxmap v0.2.0 h1:lncWIcLQYALBiHLYz3aDuNvp6tcj3rGiHziG9Jrava0=

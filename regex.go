@@ -18,7 +18,7 @@ var regReReplaceComment pcre.Regexp = pcre.MustCompileJIT(`\(\?\#.*?\)`, pcre.UT
 
 var varType map[string]reflect.Type
 
-var cache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regexp](2 * time.Hour)
+var cache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regexp](2 * time.Hour, 1 * time.Hour)
 
 func init() {
 	varType = map[string]reflect.Type{}
