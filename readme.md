@@ -2,6 +2,8 @@
 
 [![donation link](https://img.shields.io/badge/buy%20me%20a%20coffee-square-blue)](https://buymeacoffee.aspiesoft.com)
 
+A High Performance PCRE Regex Package That Uses A Cache.
+
 Simplifies the the go-pcre regex package.
 After calling a regex, the compiled output gets cached to improve performance.
 
@@ -21,7 +23,7 @@ This package uses the [go-pcre](https://github.com/GRbit/go-pcre) package for be
 ```go
 
 import (
-  "github.com/AspieSoft/go-regex/"
+  "github.com/AspieSoft/go-regex"
 )
 
 // pre compile a regex into the cache

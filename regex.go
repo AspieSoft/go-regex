@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AspieSoft/go-ttlcache"
 	"github.com/GRbit/go-pcre"
-	"github.com/jellydator/ttlcache/v3"
 )
 
 type Regexp = pcre.Regexp
@@ -18,23 +18,9 @@ var regReReplaceComment pcre.Regexp = pcre.MustCompileJIT(`\(\?\#.*?\)`, pcre.UT
 
 var varType map[string]reflect.Type
 
-var cache *ttlcache.Cache[string, pcre.Regexp]
+var cache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regexp](2 * time.Hour)
 
 func init() {
-
-	cache = ttlcache.New[string, pcre.Regexp](
-		ttlcache.WithTTL[string, pcre.Regexp](12 * time.Hour),
-	)
-
-	go cache.Start()
-
-	go (func() {
-		for {
-			time.Sleep(4 * time.Hour)
-			cache.DeleteExpired()
-		}
-	})()
-
 	varType = map[string]reflect.Type{}
 
 	varType["array"] = reflect.TypeOf([]interface{}{})
@@ -81,14 +67,12 @@ func JoinBytes(bytes ...interface{}) []byte {
 }
 
 func setCache(re string, reg pcre.Regexp) {
-	cache.Set(re, reg, ttlcache.DefaultTTL)
+	cache.Set(re, reg)
 }
 
 func getCache(re string) (pcre.Regexp, bool) {
-	val := cache.Get(re)
-
-	if val != nil {
-		return val.Value(), true
+	if val, ok := cache.Get(re); ok {
+		return val, true
 	}
 
 	return pcre.Regexp{}, false
