@@ -108,16 +108,18 @@ func Compile(re string) Regexp {
 	}
 }
 
-func RepFunc(str []byte, re string, rep func(func(int) []byte) []byte, blank ...bool) []byte {
+func RepFunc[T interface{string|[]byte}](str T, re string, rep func(func(int) []byte) []byte, blank ...bool) T {
+	b := []byte(str)
+
 	reg := Compile(re)
 
-	// ind := reg.FindAllIndex(str, pcre.UTF8)
-	ind := reg.FindAllIndex(str, 0)
+	// ind := reg.FindAllIndex(b, pcre.UTF8)
+	ind := reg.FindAllIndex(b, 0)
 
 	res := []byte{}
 	trim := 0
 	for _, pos := range ind {
-		v := str[pos[0]:pos[1]]
+		v := b[pos[0]:pos[1]]
 		m := reg.Matcher(v, 0)
 
 		if len(blank) != 0 {
@@ -132,13 +134,13 @@ func RepFunc(str []byte, re string, rep func(func(int) []byte) []byte, blank ...
 			})
 
 			if r == nil {
-				return nil
+				return T([]byte{})
 			}
 		} else {
 			if trim == 0 {
-				res = append(res, str[:pos[0]]...)
+				res = append(res, b[:pos[0]]...)
 			} else {
-				res = append(res, str[trim:pos[0]]...)
+				res = append(res, b[trim:pos[0]]...)
 			}
 			trim = pos[1]
 
@@ -153,8 +155,8 @@ func RepFunc(str []byte, re string, rep func(func(int) []byte) []byte, blank ...
 			})
 
 			if r == nil {
-				res = append(res, str[trim:]...)
-				return res
+				res = append(res, b[trim:]...)
+				return T(res)
 			}
 
 			res = append(res, r...)
@@ -162,25 +164,27 @@ func RepFunc(str []byte, re string, rep func(func(int) []byte) []byte, blank ...
 	}
 
 	if len(blank) != 0 {
-		return nil
+		return T([]byte{})
 	}
 
-	res = append(res, str[trim:]...)
+	res = append(res, b[trim:]...)
 
-	return res
+	return T(res)
 }
 
-func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blank ...bool) []byte {
+func RepFuncFirst[T interface{string|[]byte}](str T, re string, rep func(func(int) []byte) []byte, blank ...bool) T {
+	b := []byte(str)
+	
 	reg := Compile(re)
 
-	// ind := reg.FindAllIndex(str, pcre.UTF8)
-	// ind := reg.FindAllIndex(str, 0)
-	pos := reg.FindIndex(str, 0)
+	// ind := reg.FindAllIndex(b, pcre.UTF8)
+	// ind := reg.FindAllIndex(b, 0)
+	pos := reg.FindIndex(b, 0)
 
 	res := []byte{}
 	trim := 0
 	// for _, pos := range ind {
-	v := str[pos[0]:pos[1]]
+	v := b[pos[0]:pos[1]]
 	m := reg.Matcher(v, 0)
 
 	if len(blank) != 0 {
@@ -195,13 +199,13 @@ func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blan
 		})
 
 		if r == nil {
-			return nil
+			return T([]byte{})
 		}
 	} else {
 		if trim == 0 {
-			res = append(res, str[:pos[0]]...)
+			res = append(res, b[:pos[0]]...)
 		} else {
-			res = append(res, str[trim:pos[0]]...)
+			res = append(res, b[trim:pos[0]]...)
 		}
 		trim = pos[1]
 
@@ -216,8 +220,8 @@ func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blan
 		})
 
 		if r == nil {
-			res = append(res, str[trim:]...)
-			return res
+			res = append(res, b[trim:]...)
+			return T(res)
 		}
 
 		res = append(res, r...)
@@ -225,57 +229,59 @@ func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blan
 	// }
 
 	if len(blank) != 0 {
-		return nil
+		return T([]byte{})
 	}
 
-	res = append(res, str[trim:]...)
+	res = append(res, b[trim:]...)
 
-	return res
+	return T(res)
 }
 
-func RepStr(str []byte, re string, rep []byte) []byte {
+func RepStr[T interface{string|[]byte}](str T, re string, rep T) T {
 	reg := Compile(re)
 
-	// return reg.ReplaceAll(str, rep, pcre.UTF8)
-	return reg.ReplaceAll(str, rep, 0)
+	// return reg.ReplaceAll([]byte(str), []byte(rep), pcre.UTF8)
+	return T(reg.ReplaceAll([]byte(str), []byte(rep), 0))
 }
 
-func Match(str []byte, re string) bool {
+func Match[T interface{string|[]byte}](str T, re string) bool {
 	reg := Compile(re)
 
-	// return reg.Match(str, pcre.UTF8)
-	return reg.Match(str, 0)
+	// return reg.Match([]byte(str), pcre.UTF8)
+	return reg.Match([]byte(str), 0)
 }
 
-func Split(str []byte, re string) [][]byte {
+func Split[T interface{string|[]byte}](str T, re string) []T {
+	b := []byte(str)
+
 	reg := Compile(re)
 
-	ind := reg.FindAllIndex(str, 0)
+	ind := reg.FindAllIndex(b, 0)
 
-	res := [][]byte{}
+	res := []T{}
 	trim := 0
 	for _, pos := range ind {
-		v := str[pos[0]:pos[1]]
+		v := b[pos[0]:pos[1]]
 		m := reg.Matcher(v, 0)
 
 		if trim == 0 {
-			res = append(res, str[:pos[0]])
+			res = append(res, T(b[:pos[0]]))
 		} else {
-			res = append(res, str[trim:pos[0]])
+			res = append(res, T(b[trim:pos[0]]))
 		}
 		trim = pos[1]
 
 		for i := 1; i <= m.Groups; i++ {
 			g := m.Group(i)
 			if len(g) != 0 {
-				res = append(res, m.Group(i))
+				res = append(res, T(m.Group(i)))
 			}
 		}
 	}
 
-	e := str[trim:]
+	e := b[trim:]
 	if len(e) != 0 {
-		res = append(res, str[trim:])
+		res = append(res, T(b[trim:]))
 	}
 
 	return res
