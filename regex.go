@@ -299,6 +299,10 @@ func RepStr[T str, J str](str T, re string, rep J) J {
 	return J(reg.ReplaceAll([]byte(str), []byte(rep), 0))
 }
 
+// A more complex version of the RepStr method
+// this function will replace things in the result like $1 with your capture groups
+// use $0 to use the full regex capture group
+// use ${123} to use numbers with more than one digit
 func RepStrComplex[T str, J str](str T, re string, rep J, blank ...bool) J {
 	b := []byte(str)
 
