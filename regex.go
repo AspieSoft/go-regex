@@ -1,7 +1,10 @@
 package regex
 
 import (
+	"bufio"
 	"bytes"
+	"fmt"
+	"os/exec"
 	"reflect"
 	"strconv"
 	"strings"
@@ -25,6 +28,13 @@ var varType map[string]reflect.Type
 var cache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regexp](2 * time.Hour, 1 * time.Hour)
 
 func init() {
+	man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
+	if man == "apt-get" || man == "apt" {
+		installLinuxPkg([]string{`libpcre3-dev`}, man)
+	}else if man == "yum" {
+		installLinuxPkg([]string{`pcre-dev`}, man)
+	}
+
 	varType = map[string]reflect.Type{}
 
 	varType["array"] = reflect.TypeOf([]interface{}{})
@@ -421,4 +431,112 @@ func Split[T str](str T, re string) []T {
 	}
 
 	return res
+}
+
+
+func installLinuxPkg(pkg []string, man ...string){
+	missingPackages := false
+	for _, name := range pkg {
+		cmd := exec.Command(`dpkg`, `-s`, name)
+		hasPackage := false
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return
+		}
+		go (func() {
+			out := bufio.NewReader(stdout)
+			for {
+				_, err := out.ReadString('\n')
+				if err == nil {
+					hasPackage = true
+				}
+			}
+		})()
+		for i := 0; i < 3; i++ {
+			cmd.Run()
+			if hasPackage {
+				break
+			}
+		}
+		if !hasPackage {
+			missingPackages = true
+		}
+	}
+
+	if missingPackages {
+		var pkgMan string
+		if len(man) != 0 {
+			pkgMan = man[0]
+		}else{
+			pkgMan = getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
+		}
+
+		cmd := exec.Command(`sudo`, append([]string{pkgMan, `install`, `-y`}, pkg...)...)
+
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return
+		}
+
+		go (func() {
+			out := bufio.NewReader(stdout)
+			for {
+				s, err := out.ReadString('\n')
+				if err == nil {
+					fmt.Println(s)
+				}
+			}
+		})()
+
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return
+		}
+
+		go (func() {
+			out := bufio.NewReader(stderr)
+			for {
+				s, err := out.ReadString('\n')
+				if err == nil {
+					fmt.Println(s)
+				}
+			}
+		})()
+
+		cmd.Run()
+	}
+}
+
+func getLinuxInstaller(man []string) string {
+	hasInstaller := ""
+
+	for _, m := range man {
+		cmd := exec.Command(`dpkg`, `-s`, m)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			continue
+		}
+		go (func() {
+			out := bufio.NewReader(stdout)
+			for {
+				_, err := out.Peek(1)
+				if err == nil {
+					hasInstaller = m
+				}
+			}
+		})()
+
+		for i := 0; i < 3; i++ {
+			cmd.Run()
+			if hasInstaller != "" {
+				break
+			}
+		}
+
+		if hasInstaller != "" {
+			break
+		}
+	}
+
+	return hasInstaller
 }

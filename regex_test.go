@@ -81,7 +81,7 @@ func TestConcurent(t *testing.T) {
 					return data(1)
 				})
 				_ = res
-				time.Sleep(10)
+				time.Sleep(10 * time.Nanosecond)
 			})()
 		}
 
