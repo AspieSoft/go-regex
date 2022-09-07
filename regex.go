@@ -30,9 +30,13 @@ var cache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regex
 func init() {
 	man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
 	if man == "apt-get" || man == "apt" {
-		installLinuxPkg([]string{`libpcre3-dev`}, man)
+		if !hasLinuxPkg([]string{`libpcre3-dev`}) {
+			fmt.Println("Nodice: for pcre regex to work, you may need to install libpcre3-dev as a dependency\nsudo "+man+" install libpcre3-dev")
+		}
 	}else if man == "yum" {
-		installLinuxPkg([]string{`pcre-dev`}, man)
+		if !hasLinuxPkg([]string{`pcre-dev`}) {
+			fmt.Println("Nodice: for pcre regex to work, you may need to install pcre-dev as a dependency\nsudo "+man+" install pcre-dev")
+		}
 	}
 
 	varType = map[string]reflect.Type{}
@@ -54,6 +58,15 @@ func init() {
 	varType["int32"] = reflect.TypeOf(' ')
 
 	Compile(`(\\|)\$([0-9]|\{[0-9]+\})`)
+}
+
+func AutoInstallLinuxDependencies(){
+	man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
+	if man == "apt-get" || man == "apt" {
+		installLinuxPkg([]string{`libpcre3-dev`}, man)
+	}else if man == "yum" {
+		installLinuxPkg([]string{`pcre-dev`}, man)
+	}
 }
 
 // An easy way to join multiple values into a single []byte
@@ -435,35 +448,7 @@ func Split[T str](str T, re string) []T {
 
 
 func installLinuxPkg(pkg []string, man ...string){
-	missingPackages := false
-	for _, name := range pkg {
-		cmd := exec.Command(`dpkg`, `-s`, name)
-		hasPackage := false
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return
-		}
-		go (func() {
-			out := bufio.NewReader(stdout)
-			for {
-				_, err := out.ReadString('\n')
-				if err == nil {
-					hasPackage = true
-				}
-			}
-		})()
-		for i := 0; i < 3; i++ {
-			cmd.Run()
-			if hasPackage {
-				break
-			}
-		}
-		if !hasPackage {
-			missingPackages = true
-		}
-	}
-
-	if missingPackages {
+	if !hasLinuxPkg(pkg) {
 		var pkgMan string
 		if len(man) != 0 {
 			pkgMan = man[0]
@@ -505,6 +490,37 @@ func installLinuxPkg(pkg []string, man ...string){
 
 		cmd.Run()
 	}
+}
+
+func hasLinuxPkg(pkg []string) bool {
+	for _, name := range pkg {
+		hasPackage := false
+		cmd := exec.Command(`dpkg`, `-s`, name)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return true
+		}
+		go (func() {
+			out := bufio.NewReader(stdout)
+			for {
+				_, err := out.ReadString('\n')
+				if err == nil {
+					hasPackage = true
+				}
+			}
+		})()
+		for i := 0; i < 3; i++ {
+			cmd.Run()
+			if hasPackage {
+				break
+			}
+		}
+		if !hasPackage {
+			return false
+		}
+	}
+
+	return true
 }
 
 func getLinuxInstaller(man []string) string {
