@@ -39,7 +39,6 @@ func init() {
 		}
 	}
 
-
 	varType = map[string]reflect.Type{}
 
 	varType["array"] = reflect.TypeOf([]interface{}{})
