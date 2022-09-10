@@ -48,8 +48,8 @@ func TestReplaceStrComplex(t *testing.T) {
 
 func TestReplaceFunc(t *testing.T) {
 	var check = func(s string, re, r string, e string) {
-		res := RepFunc(s, re, func(data func(int) []byte) []byte {
-			return Join[[]byte](data(1), ' ', r)
+		res := RepFunc([]byte(s), re, func(data func(int) []byte) []byte {
+			return JoinBytes(data(1), ' ', r)
 		})
 		if !bytes.Equal(res, []byte(e)) {
 			t.Error("[", string(res), "]\n", errors.New("result does not match expected result"))

@@ -16,10 +16,6 @@ import (
 
 type Regexp = pcre.Regexp
 
-type str interface{
-	[]byte | string
-}
-
 var regReReplaceQuote pcre.Regexp = pcre.MustCompileJIT(`\\[\\']`, pcre.UTF8, pcre.CONFIG_JIT)
 var regReReplaceComment pcre.Regexp = pcre.MustCompileJIT(`\(\?\#.*?\)`, pcre.UTF8, pcre.CONFIG_JIT)
 
@@ -102,7 +98,7 @@ func JoinBytes(bytes ...interface{}) []byte {
 
 // An easy way to join multiple values with different types, into a single value with one type
 // accepts: []byte, byte, int32, string, [][]byte, int, int64, float64, float32
-func Join[T str](bytes ...interface{}) T {
+/* func Join[T str](bytes ...interface{}) T {
 	res := []byte{}
 	for _, b := range bytes {
 		switch reflect.TypeOf(b) {
@@ -129,7 +125,7 @@ func Join[T str](bytes ...interface{}) T {
 		}
 	}
 	return T(res)
-}
+} */
 
 func setCache(re string, reg pcre.Regexp) {
 	cache.Set(re, reg)
@@ -183,18 +179,16 @@ func Compile(re string) Regexp {
 
 // Replace a string with the result of a function
 // similar to JavaScript .replace(/re/, function(data){})
-func RepFunc[T str, J str](str T, re string, rep func(data func(int) []byte) J, blank ...bool) J {
-	b := []byte(str)
-
+func RepFunc(str []byte, re string, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
 	reg := Compile(re)
 
 	// ind := reg.FindAllIndex(b, pcre.UTF8)
-	ind := reg.FindAllIndex(b, 0)
+	ind := reg.FindAllIndex(str, 0)
 
 	res := []byte{}
 	trim := 0
 	for _, pos := range ind {
-		v := b[pos[0]:pos[1]]
+		v := str[pos[0]:pos[1]]
 		m := reg.Matcher(v, 0)
 
 		if len(blank) != 0 {
@@ -209,13 +203,13 @@ func RepFunc[T str, J str](str T, re string, rep func(data func(int) []byte) J, 
 			})
 
 			if []byte(r) == nil {
-				return J([]byte{})
+				return []byte{}
 			}
 		} else {
 			if trim == 0 {
-				res = append(res, b[:pos[0]]...)
+				res = append(res, str[:pos[0]]...)
 			} else {
-				res = append(res, b[trim:pos[0]]...)
+				res = append(res, str[trim:pos[0]]...)
 			}
 			trim = pos[1]
 
@@ -230,8 +224,8 @@ func RepFunc[T str, J str](str T, re string, rep func(data func(int) []byte) J, 
 			})
 
 			if []byte(r) == nil {
-				res = append(res, b[trim:]...)
-				return J(res)
+				res = append(res, str[trim:]...)
+				return res
 			}
 
 			res = append(res, r...)
@@ -239,28 +233,91 @@ func RepFunc[T str, J str](str T, re string, rep func(data func(int) []byte) J, 
 	}
 
 	if len(blank) != 0 {
-		return J([]byte{})
+		return []byte{}
 	}
 
-	res = append(res, b[trim:]...)
+	res = append(res, str[trim:]...)
 
-	return J(res)
+	return res
+}
+
+// Replace a string with the result of a function
+// similar to JavaScript .replace(/re/, function(data){})
+// Uses Pointers For Improved Performance
+func RepFuncRef(str *[]byte, re string, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
+	reg := Compile(re)
+
+	// ind := reg.FindAllIndex(b, pcre.UTF8)
+	ind := reg.FindAllIndex(*str, 0)
+
+	res := []byte{}
+	trim := 0
+	for _, pos := range ind {
+		v := (*str)[pos[0]:pos[1]]
+		m := reg.Matcher(v, 0)
+
+		if len(blank) != 0 {
+			gCache := map[int][]byte{}
+			r := rep(func(g int) []byte {
+				if v, ok := gCache[g]; ok {
+					return v
+				}
+				v := m.Group(g)
+				gCache[g] = v
+				return v
+			})
+
+			if []byte(r) == nil {
+				return []byte{}
+			}
+		} else {
+			if trim == 0 {
+				res = append(res, (*str)[:pos[0]]...)
+			} else {
+				res = append(res, (*str)[trim:pos[0]]...)
+			}
+			trim = pos[1]
+
+			gCache := map[int][]byte{}
+			r := rep(func(g int) []byte {
+				if v, ok := gCache[g]; ok {
+					return v
+				}
+				v := m.Group(g)
+				gCache[g] = v
+				return v
+			})
+
+			if []byte(r) == nil {
+				res = append(res, (*str)[trim:]...)
+				return res
+			}
+
+			res = append(res, r...)
+		}
+	}
+
+	if len(blank) != 0 {
+		return []byte{}
+	}
+
+	res = append(res, (*str)[trim:]...)
+
+	return res
 }
 
 // a copy of the RepFunc method modified to only run once
-func RepFuncFirst[T str, J str](str T, re string, rep func(func(int) []byte) J, blank ...bool) J {
-	b := []byte(str)
-	
+func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blank ...bool) []byte {
 	reg := Compile(re)
 
 	// ind := reg.FindAllIndex(b, pcre.UTF8)
 	// ind := reg.FindAllIndex(b, 0)
-	pos := reg.FindIndex(b, 0)
+	pos := reg.FindIndex(str, 0)
 
 	res := []byte{}
 	trim := 0
 	// for _, pos := range ind {
-	v := b[pos[0]:pos[1]]
+	v := str[pos[0]:pos[1]]
 	m := reg.Matcher(v, 0)
 
 	if len(blank) != 0 {
@@ -275,13 +332,13 @@ func RepFuncFirst[T str, J str](str T, re string, rep func(func(int) []byte) J, 
 		})
 
 		if []byte(r) == nil {
-			return J([]byte{})
+			return []byte{}
 		}
 	} else {
 		if trim == 0 {
-			res = append(res, b[:pos[0]]...)
+			res = append(res, str[:pos[0]]...)
 		} else {
-			res = append(res, b[trim:pos[0]]...)
+			res = append(res, str[trim:pos[0]]...)
 		}
 		trim = pos[1]
 
@@ -296,8 +353,8 @@ func RepFuncFirst[T str, J str](str T, re string, rep func(func(int) []byte) J, 
 		})
 
 		if []byte(r) == nil {
-			res = append(res, b[trim:]...)
-			return J(res)
+			res = append(res, str[trim:]...)
+			return res
 		}
 
 		res = append(res, r...)
@@ -305,142 +362,283 @@ func RepFuncFirst[T str, J str](str T, re string, rep func(func(int) []byte) J, 
 	// }
 
 	if len(blank) != 0 {
-		return J([]byte{})
+		return []byte{}
 	}
 
-	res = append(res, b[trim:]...)
+	res = append(res, str[trim:]...)
 
-	return J(res)
+	return res
 }
 
 // Replace with a string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
-func RepStr[T str, J str](str T, re string, rep J) J {
+func RepStr(str []byte, re string, rep []byte) []byte {
 	reg := Compile(re)
 
-	// return reg.ReplaceAll([]byte(str), []byte(rep), pcre.UTF8)
-	return J(reg.ReplaceAll([]byte(str), []byte(rep), 0))
+	// return reg.ReplaceAll(str, rep, pcre.UTF8)
+	return reg.ReplaceAll(str, rep, 0)
+}
+
+// Replace with a string
+// note: this function is optimized for performance, and the replacement string does not accept replacements like $1
+// Uses Pointers For Improved Performance
+func RepStrRef(str *[]byte, re string, rep []byte) []byte {
+	reg := Compile(re)
+
+	// return reg.ReplaceAll(str, rep, pcre.UTF8)
+	return reg.ReplaceAll(*str, rep, 0)
+}
+
+// Replace with a string
+// note: this function is optimized for performance, and the replacement string does not accept replacements like $1
+// Uses Pointers For Improved Performance (also on result)
+func RepStrRefRes(str *[]byte, re string, rep *[]byte) []byte {
+	reg := Compile(re)
+
+	// return reg.ReplaceAll(str, rep, pcre.UTF8)
+	return reg.ReplaceAll(*str, *rep, 0)
 }
 
 // A more complex version of the RepStr method
 // this function will replace things in the result like $1 with your capture groups
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
-func RepStrComplex[T str, J str](str T, re string, rep J, blank ...bool) J {
-	b := []byte(str)
-
+func RepStrComplex(str []byte, re string, rep []byte) []byte {
 	reg := Compile(re)
 
-	repB := []byte(rep)
-
-	// ind := reg.FindAllIndex(b, pcre.UTF8)
-	ind := reg.FindAllIndex(b, 0)
+	// ind := reg.FindAllIndex(str, pcre.UTF8)
+	ind := reg.FindAllIndex(str, 0)
 
 	res := []byte{}
 	trim := 0
 	for _, pos := range ind {
-		v := b[pos[0]:pos[1]]
+		v := str[pos[0]:pos[1]]
 		m := reg.Matcher(v, 0)
 
-		if len(blank) != 0 {
-			r := RepFunc(repB, `(\\|)$([0-9]|\{[0-9]+\})`, func(data func(int) []byte) []byte {
-				if len(data(1)) != 0 {
-					return data(0)
-				}
-				n := data(2)
-				if len(n) > 1 {
-					n = n[1:len(n)-1]
-				}
-				if i, err := strconv.Atoi(string(n)); err == nil {
-					return m.Group(i)
-				}
-				return []byte{}
-			})
-
-			if r == nil {
-				return J([]byte{})
-			}
+		if trim == 0 {
+			res = append(res, str[:pos[0]]...)
 		} else {
-			if trim == 0 {
-				res = append(res, b[:pos[0]]...)
-			} else {
-				res = append(res, b[trim:pos[0]]...)
-			}
-			trim = pos[1]
-
-			r := RepFunc(repB, `(\\|)\$([0-9]|\{[0-9]+\})`, func(data func(int) []byte) []byte {
-				if len(data(1)) != 0 {
-					return data(0)
-				}
-				n := data(2)
-				if len(n) > 1 {
-					n = n[1:len(n)-1]
-				}
-				if i, err := strconv.Atoi(string(n)); err == nil {
-					return m.Group(i)
-				}
-				return []byte{}
-			})
-
-			if r == nil {
-				res = append(res, b[trim:]...)
-				return J(res)
-			}
-
-			res = append(res, r...)
+			res = append(res, str[trim:pos[0]]...)
 		}
+		trim = pos[1]
+
+		r := RepFunc(rep, `(\\|)\$([0-9]|\{[0-9]+\})`, func(data func(int) []byte) []byte {
+			if len(data(1)) != 0 {
+				return data(0)
+			}
+			n := data(2)
+			if len(n) > 1 {
+				n = n[1:len(n)-1]
+			}
+			if i, err := strconv.Atoi(string(n)); err == nil {
+				return m.Group(i)
+			}
+			return []byte{}
+		})
+
+		if r == nil {
+			res = append(res, str[trim:]...)
+			return res
+		}
+
+		res = append(res, r...)
+		
 	}
 
-	if len(blank) != 0 {
-		return J([]byte{})
+	res = append(res, str[trim:]...)
+
+	return res
+}
+
+// A more complex version of the RepStr method
+// this function will replace things in the result like $1 with your capture groups
+// use $0 to use the full regex capture group
+// use ${123} to use numbers with more than one digit
+// Uses Pointers For Improved Performance
+func RepStrComplexRef(str *[]byte, re string, rep []byte) []byte {
+	reg := Compile(re)
+
+	// ind := reg.FindAllIndex(str, pcre.UTF8)
+	ind := reg.FindAllIndex(*str, 0)
+
+	res := []byte{}
+	trim := 0
+	for _, pos := range ind {
+		v := (*str)[pos[0]:pos[1]]
+		m := reg.Matcher(v, 0)
+
+		if trim == 0 {
+			res = append(res, (*str)[:pos[0]]...)
+		} else {
+			res = append(res, (*str)[trim:pos[0]]...)
+		}
+		trim = pos[1]
+
+		r := RepFunc(rep, `(\\|)\$([0-9]|\{[0-9]+\})`, func(data func(int) []byte) []byte {
+			if len(data(1)) != 0 {
+				return data(0)
+			}
+			n := data(2)
+			if len(n) > 1 {
+				n = n[1:len(n)-1]
+			}
+			if i, err := strconv.Atoi(string(n)); err == nil {
+				return m.Group(i)
+			}
+			return []byte{}
+		})
+
+		if r == nil {
+			res = append(res, (*str)[trim:]...)
+			return res
+		}
+
+		res = append(res, r...)
+		
 	}
 
-	res = append(res, b[trim:]...)
+	res = append(res, (*str)[trim:]...)
 
-	return J(res)
+	return res
+}
+
+// A more complex version of the RepStr method
+// this function will replace things in the result like $1 with your capture groups
+// use $0 to use the full regex capture group
+// use ${123} to use numbers with more than one digit
+// Uses Pointers For Improved Performance (also on result)
+func RepStrComplexRefRes(str *[]byte, re string, rep *[]byte) []byte {
+	reg := Compile(re)
+
+	// ind := reg.FindAllIndex(str, pcre.UTF8)
+	ind := reg.FindAllIndex(*str, 0)
+
+	res := []byte{}
+	trim := 0
+	for _, pos := range ind {
+		v := (*str)[pos[0]:pos[1]]
+		m := reg.Matcher(v, 0)
+
+		if trim == 0 {
+			res = append(res, (*str)[:pos[0]]...)
+		} else {
+			res = append(res, (*str)[trim:pos[0]]...)
+		}
+		trim = pos[1]
+
+		r := RepFunc(*rep, `(\\|)\$([0-9]|\{[0-9]+\})`, func(data func(int) []byte) []byte {
+			if len(data(1)) != 0 {
+				return data(0)
+			}
+			n := data(2)
+			if len(n) > 1 {
+				n = n[1:len(n)-1]
+			}
+			if i, err := strconv.Atoi(string(n)); err == nil {
+				return m.Group(i)
+			}
+			return []byte{}
+		})
+
+		if r == nil {
+			res = append(res, (*str)[trim:]...)
+			return res
+		}
+
+		res = append(res, r...)
+		
+	}
+
+	res = append(res, (*str)[trim:]...)
+
+	return res
 }
 
 // Returns true if a string matches a regex
-func Match[T str](str T, re string) bool {
+func Match(str []byte, re string) bool {
 	reg := Compile(re)
 
-	// return reg.Match([]byte(str), pcre.UTF8)
-	return reg.Match([]byte(str), 0)
+	// return reg.Match(str, pcre.UTF8)
+	return reg.Match(str, 0)
+}
+
+// Returns true if a string matches a regex
+// Uses Pointers For Improved Performance
+func MatchRef(str *[]byte, re string) bool {
+	reg := Compile(re)
+
+	// return reg.Match(str, pcre.UTF8)
+	return reg.Match(*str, 0)
 }
 
 // Splits a string, and keeps capture groups
 // Similar to JavaScript .split(/re/)
-func Split[T str](str T, re string) []T {
-	b := []byte(str)
-
+func Split(str []byte, re string) [][]byte {
 	reg := Compile(re)
 
-	ind := reg.FindAllIndex(b, 0)
+	ind := reg.FindAllIndex(str, 0)
 
-	res := []T{}
+	res := [][]byte{}
 	trim := 0
 	for _, pos := range ind {
-		v := b[pos[0]:pos[1]]
+		v := str[pos[0]:pos[1]]
 		m := reg.Matcher(v, 0)
 
 		if trim == 0 {
-			res = append(res, T(b[:pos[0]]))
+			res = append(res, str[:pos[0]])
 		} else {
-			res = append(res, T(b[trim:pos[0]]))
+			res = append(res, str[trim:pos[0]])
 		}
 		trim = pos[1]
 
 		for i := 1; i <= m.Groups; i++ {
 			g := m.Group(i)
 			if len(g) != 0 {
-				res = append(res, T(m.Group(i)))
+				res = append(res, m.Group(i))
 			}
 		}
 	}
 
-	e := b[trim:]
+	e := str[trim:]
 	if len(e) != 0 {
-		res = append(res, T(b[trim:]))
+		res = append(res, str[trim:])
+	}
+
+	return res
+}
+
+// Splits a string, and keeps capture groups
+// Similar to JavaScript .split(/re/)
+// Uses Pointers For Improved Performance
+func SplitRef(str *[]byte, re string) [][]byte {
+	reg := Compile(re)
+
+	ind := reg.FindAllIndex(*str, 0)
+
+	res := [][]byte{}
+	trim := 0
+	for _, pos := range ind {
+		v := (*str)[pos[0]:pos[1]]
+		m := reg.Matcher(v, 0)
+
+		if trim == 0 {
+			res = append(res, (*str)[:pos[0]])
+		} else {
+			res = append(res, (*str)[trim:pos[0]])
+		}
+		trim = pos[1]
+
+		for i := 1; i <= m.Groups; i++ {
+			g := m.Group(i)
+			if len(g) != 0 {
+				res = append(res, m.Group(i))
+			}
+		}
+	}
+
+	e := (*str)[trim:]
+	if len(e) != 0 {
+		res = append(res, (*str)[trim:])
 	}
 
 	return res
