@@ -1,4 +1,4 @@
-module github.com/AspieSoft/go-regex
+module github.com/AspieSoft/go-regex/v2
 
 go 1.18
 
