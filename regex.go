@@ -24,7 +24,7 @@ var varType map[string]reflect.Type
 var cache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regexp](2 * time.Hour, 1 * time.Hour)
 
 func init() {
-	man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
+	/* man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
 	if man == "apt-get" || man == "apt" {
 		if !hasLinuxPkg([]string{`libpcre3-dev`}) {
 			fmt.Println("Nodice: for pcre regex to work, you may need to install libpcre3-dev as a dependency\nsudo "+man+" install libpcre3-dev")
@@ -33,7 +33,7 @@ func init() {
 		if !hasLinuxPkg([]string{`pcre-dev`}) {
 			fmt.Println("Nodice: for pcre regex to work, you may need to install pcre-dev as a dependency\nsudo "+man+" install pcre-dev")
 		}
-	}
+	} */
 
 	varType = map[string]reflect.Type{}
 
