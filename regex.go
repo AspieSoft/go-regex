@@ -4,14 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"math"
 	"os/exec"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/AspieSoft/go-syncterval"
 	"github.com/AspieSoft/go-ttlcache"
 	"github.com/GRbit/go-pcre"
+	"github.com/pbnjay/memory"
 )
 
 type Regexp = pcre.Regexp
@@ -54,8 +57,20 @@ func init() {
 	varType["int32"] = reflect.TypeOf(' ')
 
 	Compile(`(\\|)\$([0-9]|\{[0-9]+\})`)
+
+	go func(){
+		// clear cache items older than 10 minutes if there are only 200MB of free memory
+		syncterval.New(10 * time.Second, func() {
+			if formatMemoryUsage(memory.FreeMemory()) < 200 {
+				cache.ClearEarly(10 * time.Minute)
+			}
+		})
+	}()
 }
 
+// AutoInstallLinuxDependencies will automatically detect and install dependencies if missing from debian or arch linux
+// debian: libpcre3-dev
+// arch: pcre-dev
 func AutoInstallLinuxDependencies(){
 	man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
 	if man == "apt-get" || man == "apt" {
@@ -65,7 +80,7 @@ func AutoInstallLinuxDependencies(){
 	}
 }
 
-// An easy way to join multiple values into a single []byte
+// JoinBytes is an easy way to join multiple values into a single []byte
 // accepts: []byte, byte, int32, string, [][]byte, int, int64, float64, float32
 func JoinBytes(bytes ...interface{}) []byte {
 	res := []byte{}
@@ -139,7 +154,7 @@ func getCache(re string) (pcre.Regexp, bool) {
 	return pcre.Regexp{}, false
 }
 
-// Compile a regular expression and store it in the cache
+// Compile compiles a regular expression and store it in the cache
 func Compile(re string) Regexp {
 	if strings.Contains(re, `\'`) {
 		r := []byte(re)
@@ -177,7 +192,7 @@ func Compile(re string) Regexp {
 	}
 }
 
-// Replace a string with the result of a function
+// RepFunc replaces a string with the result of a function
 // similar to JavaScript .replace(/re/, function(data){})
 func RepFunc(str []byte, re string, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
 	reg := Compile(re)
@@ -241,7 +256,7 @@ func RepFunc(str []byte, re string, rep func(data func(int) []byte) []byte, blan
 	return res
 }
 
-// Replace a string with the result of a function
+// RepFuncRef replace a string with the result of a function
 // similar to JavaScript .replace(/re/, function(data){})
 // Uses Pointers For Improved Performance
 func RepFuncRef(str *[]byte, re string, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
@@ -306,7 +321,7 @@ func RepFuncRef(str *[]byte, re string, rep func(data func(int) []byte) []byte, 
 	return res
 }
 
-// a copy of the RepFunc method modified to only run once
+// RepFuncFirst is a copy of the RepFunc method modified to only run once
 func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blank ...bool) []byte {
 	reg := Compile(re)
 
@@ -370,7 +385,7 @@ func RepFuncFirst(str []byte, re string, rep func(func(int) []byte) []byte, blan
 	return res
 }
 
-// Replace with a string
+// RepStr replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
 func RepStr(str []byte, re string, rep []byte) []byte {
 	reg := Compile(re)
@@ -379,7 +394,7 @@ func RepStr(str []byte, re string, rep []byte) []byte {
 	return reg.ReplaceAll(str, rep, 0)
 }
 
-// Replace with a string
+// RepStrRef replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
 // Uses Pointers For Improved Performance
 func RepStrRef(str *[]byte, re string, rep []byte) []byte {
@@ -389,7 +404,7 @@ func RepStrRef(str *[]byte, re string, rep []byte) []byte {
 	return reg.ReplaceAll(*str, rep, 0)
 }
 
-// Replace with a string
+// RepStrRefRes replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
 // Uses Pointers For Improved Performance (also on result)
 func RepStrRefRes(str *[]byte, re string, rep *[]byte) []byte {
@@ -399,7 +414,7 @@ func RepStrRefRes(str *[]byte, re string, rep *[]byte) []byte {
 	return reg.ReplaceAll(*str, *rep, 0)
 }
 
-// A more complex version of the RepStr method
+// RepStrComplex is a more complex version of the RepStr method
 // this function will replace things in the result like $1 with your capture groups
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
@@ -450,7 +465,7 @@ func RepStrComplex(str []byte, re string, rep []byte) []byte {
 	return res
 }
 
-// A more complex version of the RepStr method
+// RepStrComplexRef is a more complex version of the RepStrRef method
 // this function will replace things in the result like $1 with your capture groups
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
@@ -502,7 +517,7 @@ func RepStrComplexRef(str *[]byte, re string, rep []byte) []byte {
 	return res
 }
 
-// A more complex version of the RepStr method
+// RepStrComplexRefRes is a more complex version of the RepStrRefRes method
 // this function will replace things in the result like $1 with your capture groups
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
@@ -554,7 +569,7 @@ func RepStrComplexRefRes(str *[]byte, re string, rep *[]byte) []byte {
 	return res
 }
 
-// Returns true if a string matches a regex
+// Match returns true if a string matches a regex
 func Match(str []byte, re string) bool {
 	reg := Compile(re)
 
@@ -562,7 +577,7 @@ func Match(str []byte, re string) bool {
 	return reg.Match(str, 0)
 }
 
-// Returns true if a string matches a regex
+// MatchRef returns true if a string matches a regex
 // Uses Pointers For Improved Performance
 func MatchRef(str *[]byte, re string) bool {
 	reg := Compile(re)
@@ -571,7 +586,7 @@ func MatchRef(str *[]byte, re string) bool {
 	return reg.Match(*str, 0)
 }
 
-// Splits a string, and keeps capture groups
+// Split splits a string, and keeps capture groups
 // Similar to JavaScript .split(/re/)
 func Split(str []byte, re string) [][]byte {
 	reg := Compile(re)
@@ -607,7 +622,7 @@ func Split(str []byte, re string) [][]byte {
 	return res
 }
 
-// Splits a string, and keeps capture groups
+// SplitRef splits a string, and keeps capture groups
 // Similar to JavaScript .split(/re/)
 // Uses Pointers For Improved Performance
 func SplitRef(str *[]byte, re string) [][]byte {
@@ -642,6 +657,12 @@ func SplitRef(str *[]byte, re string) [][]byte {
 	}
 
 	return res
+}
+
+
+// formatMemoryUsage converts bytes to megabytes
+func formatMemoryUsage(b uint64) float64 {
+	return math.Round(float64(b) / 1024 / 1024 * 100) / 100
 }
 
 
