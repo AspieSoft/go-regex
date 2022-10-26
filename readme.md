@@ -23,7 +23,7 @@ This package uses the [go-pcre](https://github.com/GRbit/go-pcre) package for be
 ```go
 
 import (
-  "github.com/AspieSoft/go-regex"
+  "github.com/AspieSoft/go-regex/v3"
 )
 
 // pre compile a regex into the cache
