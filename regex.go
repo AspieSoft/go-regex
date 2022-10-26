@@ -21,7 +21,7 @@ type Regexp = pcre.Regexp
 
 var regReReplaceQuote pcre.Regexp = pcre.MustCompileJIT(`\\[\\']`, pcre.UTF8, pcre.CONFIG_JIT)
 var regReReplaceComment pcre.Regexp = pcre.MustCompileJIT(`\(\?\#.*?\)`, pcre.UTF8, pcre.CONFIG_JIT)
-var regReReplaceParam pcre.Regexp = pcre.MustCompileJIT(`%\{[0-9]+\}|%[0-9]`, pcre.UTF8, pcre.CONFIG_JIT)
+var regReReplaceParam pcre.Regexp = pcre.MustCompileJIT(`(?<!\\)(%\{[0-9]+\}|%[0-9])`, pcre.UTF8, pcre.CONFIG_JIT)
 
 var regComplexSel *Regexp
 
@@ -185,9 +185,9 @@ func Compile(re string, params ...string) *Regexp {
 		var pRe string
 		ind := strconv.Itoa(i+1)
 		if len(ind) == 1 {
-			pRe = `%\{`+ind+`\}|%`+ind
+			pRe = `(?<!\\)(%\{`+ind+`\}|%`+ind+`)`
 		} else {
-			pRe = `%\{`+ind+`\}`
+			pRe = `(?<!\\)(%\{`+ind+`\})`
 		}
 
 		var pReC pcre.Regexp

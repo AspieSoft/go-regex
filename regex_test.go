@@ -31,6 +31,11 @@ func TestCompile(t *testing.T) {
 	if re == reEscaped || Match([]byte(`test 1`), Compile(reEscaped)) {
 		t.Error("[", reEscaped, "]\n", errors.New("escape function failed"))
 	}
+
+	r := Compile(`test %1`, "%2", "a")
+	if Match([]byte(`test a`), r) {
+		t.Error(`[test %1] [%2, a]`, "\n", errors.New("escape function failed to escape '%' char"))
+	}
 }
 
 func TestReplaceStr(t *testing.T) {
