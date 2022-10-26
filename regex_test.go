@@ -20,11 +20,22 @@ func TestCompile(t *testing.T) {
 
 	check("")
 	check("a(b)")
+
+	reC := Compile("this is test %1", "a")
+	if reC.ReplaceAllString(`this is test a`, `this is test b`, 0) != `this is test b` {
+		t.Error(`[this is test %1] [a]`, "\n", errors.New("failed to compile params"))
+	}
+
+	re := `test .*`
+	reEscaped := Escape(re)
+	if re == reEscaped || Match([]byte(`test 1`), Compile(reEscaped)) {
+		t.Error("[", reEscaped, "]\n", errors.New("escape function failed"))
+	}
 }
 
 func TestReplaceStr(t *testing.T) {
 	var check = func(s string, re, r string, e string) {
-		res := RepStr([]byte(s), re, []byte(r))
+		res := RepStr([]byte(s), Compile(re), []byte(r))
 		if !bytes.Equal(res, []byte(e)) {
 			t.Error("[", string(res), "]\n", errors.New("result does not match expected result"))
 		}
@@ -36,7 +47,7 @@ func TestReplaceStr(t *testing.T) {
 
 func TestReplaceStrComplex(t *testing.T) {
 	var check = func(s string, re, r string, e string) {
-		res := RepStrComplex([]byte(s), re, []byte(r))
+		res := RepStrComplex([]byte(s), Compile(re), []byte(r))
 		if !bytes.Equal(res, []byte(e)) {
 			t.Error("[", string(res), "]\n", errors.New("result does not match expected result"))
 		}
@@ -48,7 +59,7 @@ func TestReplaceStrComplex(t *testing.T) {
 
 func TestReplaceFunc(t *testing.T) {
 	var check = func(s string, re, r string, e string) {
-		res := RepFunc([]byte(s), re, func(data func(int) []byte) []byte {
+		res := RepFunc([]byte(s), Compile(re), func(data func(int) []byte) []byte {
 			return JoinBytes(data(1), ' ', r)
 		})
 		if !bytes.Equal(res, []byte(e)) {
@@ -62,7 +73,7 @@ func TestReplaceFunc(t *testing.T) {
 
 func TestReplaceFuncFirst(t *testing.T) {
 	var check = func(s string, re string, r func(func(int) []byte) []byte, e string) {
-		res := RepFuncFirst([]byte(s), re, r)
+		res := RepFuncFirst([]byte(s), Compile(re), r)
 		if !bytes.Equal(res, []byte(e)) {
 			t.Error("[", string(res), "]\n", errors.New("result does not match expected result"))
 		}
@@ -77,7 +88,7 @@ func TestConcurent(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 10; j++ {
 			go (func() {
-				res := RepFunc([]byte("test"), `(t)`, func(data func(int) []byte) []byte {
+				res := RepFunc([]byte("test"), Compile(`(t)`), func(data func(int) []byte) []byte {
 					return data(1)
 				})
 				_ = res
@@ -92,7 +103,7 @@ func TestConcurent(t *testing.T) {
 
 func TestCache(t *testing.T) {
 	var check = func(s string, re, r string, e string) {
-		res := RepStr([]byte(s), re, []byte(r))
+		res := RepStr([]byte(s), Compile(re), []byte(r))
 		if !bytes.Equal(res, []byte(e)) {
 			t.Error("[", string(res), "]\n", errors.New("result does not match expected result"))
 		}
@@ -104,7 +115,7 @@ func TestCache(t *testing.T) {
 
 func TestFlags(t *testing.T) {
 	var check = func(s string, re, r string, e string) {
-		res := RepStr([]byte(s), re, []byte(r))
+		res := RepStr([]byte(s), Compile(re), []byte(r))
 		if !bytes.Equal(res, []byte(e)) {
 			t.Error("[", string(res), "]\n", errors.New("result does not match expected result"))
 		}

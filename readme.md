@@ -30,8 +30,19 @@ import (
 // this method also returns the compiled pcre.Regexp struct
 regex.Compile(`re`)
 
+// compile a regex and safely escape user input
+regex.Compile(`re %1`, `this will be escaped .*`); // output: this will be escaped \.\*
+regex.Compile(`re %1`, `hello \n world`); // output: hello \\n world (note: the \ was escaped, and the n is literal)
+
+// use %n to reference a param
+// use %{n} for param indexes with more than 1 digit
+regex.Compile(`re %1 and %2 ... %{12}`, `param 1`, `param 2` ..., `param 12`);
+
+// manually escape a string
+regex.Escape(`(.*)? \$ \\$ \\\$ regex hack failed`)
+
 // run a replace function (most advanced feature)
-regex.RepFunc(myByteArray, `(?flags)re(capture group)`, func(data func(int) []byte) []byte {
+regex.RepFunc(myByteArray, regex.Compile(`(?flags)re(capture group)`), func(data func(int) []byte) []byte {
   data(0) // get the string
   data(1) // get the first capture group
 
@@ -42,13 +53,13 @@ regex.RepFunc(myByteArray, `(?flags)re(capture group)`, func(data func(int) []by
 }, true /* optional: if true, will not process a return output */)
 
 // run a simple light replace function
-regex.RepStr(myByteArray, `re`, myReplacementByteArray)
+regex.RepStr(myByteArray, regex.Compile(`re`), myReplacementByteArray)
 
 // return a bool if a regex matches a byte array
-regex.Match(myByteArray, `re`)
+regex.Match(myByteArray, regex.Compile(`re`))
 
 // split a byte array in a similar way to JavaScript
-regex.Split(myByteArray, `re|(keep this and split like in JavaScript)`)
+regex.Split(myByteArray, regex.Compile(`re|(keep this and split like in JavaScript)`))
 
 // a regex string is modified before compiling, to add a few other features
 `use \' in place of ` + "`" + ` to make things easier`
