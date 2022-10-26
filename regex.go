@@ -23,11 +23,13 @@ var regReReplaceQuote pcre.Regexp = pcre.MustCompileJIT(`\\[\\']`, pcre.UTF8, pc
 var regReReplaceComment pcre.Regexp = pcre.MustCompileJIT(`\(\?\#.*?\)`, pcre.UTF8, pcre.CONFIG_JIT)
 var regReReplaceParam pcre.Regexp = pcre.MustCompileJIT(`%\{[0-9]+\}|%[0-9]`, pcre.UTF8, pcre.CONFIG_JIT)
 
+var regComplexSel *Regexp
+
 var regParamIndexCache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regexp](2 * time.Hour, 1 * time.Hour)
 
 var varType map[string]reflect.Type
 
-var cache *ttlcache.Cache[string, pcre.Regexp] = ttlcache.New[string, pcre.Regexp](2 * time.Hour, 1 * time.Hour)
+var cache *ttlcache.Cache[string, *pcre.Regexp] = ttlcache.New[string, *pcre.Regexp](2 * time.Hour, 1 * time.Hour)
 
 func init() {
 	/* man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
@@ -59,7 +61,7 @@ func init() {
 	// int32 returned instead of byte
 	varType["int32"] = reflect.TypeOf(' ')
 
-	Compile(`(\\|)\$([0-9]|\{[0-9]+\})`)
+	regComplexSel = Compile(`(\\|)\$([0-9]|\{[0-9]+\})`)
 
 	go func(){
 		// clear cache items older than 10 minutes if there are only 200MB of free memory
@@ -146,20 +148,20 @@ func JoinBytes(bytes ...interface{}) []byte {
 	return T(res)
 } */
 
-func setCache(re string, reg pcre.Regexp) {
+func setCache(re string, reg *pcre.Regexp) {
 	cache.Set(re, reg)
 }
 
-func getCache(re string) (pcre.Regexp, bool) {
+func getCache(re string) (*pcre.Regexp, bool) {
 	if val, ok := cache.Get(re); ok {
 		return val, true
 	}
 
-	return pcre.Regexp{}, false
+	return &pcre.Regexp{}, false
 }
 
 // Compile compiles a regular expression and store it in the cache
-func Compile(re string, params ...string) Regexp {
+func Compile(re string, params ...string) *Regexp {
 	if strings.Contains(re, `\'`) {
 		r := []byte(re)
 		ind := regReReplaceQuote.FindAllIndex(r, 0)
@@ -212,14 +214,14 @@ func Compile(re string, params ...string) Regexp {
 		// reg := pcre.MustCompileJIT(re, pcre.JAVASCRIPT_COMPAT, pcre.STUDY_JIT_COMPILE)
 		// reg := pcre.MustCompileParseJIT(re, pcre.STUDY_JIT_COMPILE)
 
-		go setCache(re, reg)
-		return reg
+		go setCache(re, &reg)
+		return &reg
 	}
 }
 
 // RepFunc replaces a string with the result of a function
 // similar to JavaScript .replace(/re/, function(data){})
-func RepFunc(str []byte, reg Regexp, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
+func RepFunc(str []byte, reg *Regexp, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
 	// reg := Compile(re)
 
 	// ind := reg.FindAllIndex(b, pcre.UTF8)
@@ -284,7 +286,7 @@ func RepFunc(str []byte, reg Regexp, rep func(data func(int) []byte) []byte, bla
 // RepFuncRef replace a string with the result of a function
 // similar to JavaScript .replace(/re/, function(data){})
 // Uses Pointers For Improved Performance
-func RepFuncRef(str *[]byte, reg Regexp, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
+func RepFuncRef(str *[]byte, reg *Regexp, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
 	// reg := Compile(re)
 
 	// ind := reg.FindAllIndex(b, pcre.UTF8)
@@ -347,7 +349,7 @@ func RepFuncRef(str *[]byte, reg Regexp, rep func(data func(int) []byte) []byte,
 }
 
 // RepFuncFirst is a copy of the RepFunc method modified to only run once
-func RepFuncFirst(str []byte, reg Regexp, rep func(func(int) []byte) []byte, blank ...bool) []byte {
+func RepFuncFirst(str []byte, reg *Regexp, rep func(func(int) []byte) []byte, blank ...bool) []byte {
 	// reg := Compile(re)
 
 	// ind := reg.FindAllIndex(b, pcre.UTF8)
@@ -412,7 +414,7 @@ func RepFuncFirst(str []byte, reg Regexp, rep func(func(int) []byte) []byte, bla
 
 // RepStr replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
-func RepStr(str []byte, reg Regexp, rep []byte) []byte {
+func RepStr(str []byte, reg *Regexp, rep []byte) []byte {
 	// reg := Compile(re)
 
 	// return reg.ReplaceAll(str, rep, pcre.UTF8)
@@ -422,7 +424,7 @@ func RepStr(str []byte, reg Regexp, rep []byte) []byte {
 // RepStrRef replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
 // Uses Pointers For Improved Performance
-func RepStrRef(str *[]byte, reg Regexp, rep []byte) []byte {
+func RepStrRef(str *[]byte, reg *Regexp, rep []byte) []byte {
 	// reg := Compile(re)
 
 	// return reg.ReplaceAll(str, rep, pcre.UTF8)
@@ -432,7 +434,7 @@ func RepStrRef(str *[]byte, reg Regexp, rep []byte) []byte {
 // RepStrRefRes replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
 // Uses Pointers For Improved Performance (also on result)
-func RepStrRefRes(str *[]byte, reg Regexp, rep *[]byte) []byte {
+func RepStrRefRes(str *[]byte, reg *Regexp, rep *[]byte) []byte {
 	// reg := Compile(re)
 
 	// return reg.ReplaceAll(str, rep, pcre.UTF8)
@@ -443,7 +445,7 @@ func RepStrRefRes(str *[]byte, reg Regexp, rep *[]byte) []byte {
 // this function will replace things in the result like $1 with your capture groups
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
-func RepStrComplex(str []byte, reg Regexp, rep []byte) []byte {
+func RepStrComplex(str []byte, reg *Regexp, rep []byte) []byte {
 	// reg := Compile(re)
 
 	// ind := reg.FindAllIndex(str, pcre.UTF8)
@@ -462,7 +464,7 @@ func RepStrComplex(str []byte, reg Regexp, rep []byte) []byte {
 		}
 		trim = pos[1]
 
-		r := RepFunc(rep, Compile(`(\\|)\$([0-9]|\{[0-9]+\})`), func(data func(int) []byte) []byte {
+		r := RepFunc(rep, regComplexSel, func(data func(int) []byte) []byte {
 			if len(data(1)) != 0 {
 				return data(0)
 			}
@@ -495,7 +497,7 @@ func RepStrComplex(str []byte, reg Regexp, rep []byte) []byte {
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
 // Uses Pointers For Improved Performance
-func RepStrComplexRef(str *[]byte, reg Regexp, rep []byte) []byte {
+func RepStrComplexRef(str *[]byte, reg *Regexp, rep []byte) []byte {
 	// reg := Compile(re)
 
 	// ind := reg.FindAllIndex(str, pcre.UTF8)
@@ -514,7 +516,7 @@ func RepStrComplexRef(str *[]byte, reg Regexp, rep []byte) []byte {
 		}
 		trim = pos[1]
 
-		r := RepFunc(rep, Compile(`(\\|)\$([0-9]|\{[0-9]+\})`), func(data func(int) []byte) []byte {
+		r := RepFunc(rep, regComplexSel, func(data func(int) []byte) []byte {
 			if len(data(1)) != 0 {
 				return data(0)
 			}
@@ -547,7 +549,7 @@ func RepStrComplexRef(str *[]byte, reg Regexp, rep []byte) []byte {
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
 // Uses Pointers For Improved Performance (also on result)
-func RepStrComplexRefRes(str *[]byte, reg Regexp, rep *[]byte) []byte {
+func RepStrComplexRefRes(str *[]byte, reg *Regexp, rep *[]byte) []byte {
 	// reg := Compile(re)
 
 	// ind := reg.FindAllIndex(str, pcre.UTF8)
@@ -566,7 +568,7 @@ func RepStrComplexRefRes(str *[]byte, reg Regexp, rep *[]byte) []byte {
 		}
 		trim = pos[1]
 
-		r := RepFunc(*rep, Compile(`(\\|)\$([0-9]|\{[0-9]+\})`), func(data func(int) []byte) []byte {
+		r := RepFunc(*rep, regComplexSel, func(data func(int) []byte) []byte {
 			if len(data(1)) != 0 {
 				return data(0)
 			}
@@ -595,7 +597,7 @@ func RepStrComplexRefRes(str *[]byte, reg Regexp, rep *[]byte) []byte {
 }
 
 // Match returns true if a []byte matches a regex
-func Match(str []byte, reg Regexp) bool {
+func Match(str []byte, reg *Regexp) bool {
 	// reg := Compile(re)
 
 	// return reg.Match(str, pcre.UTF8)
@@ -604,7 +606,7 @@ func Match(str []byte, reg Regexp) bool {
 
 // MatchRef returns true if a string matches a regex
 // Uses Pointers For Improved Performance
-func MatchRef(str *[]byte, reg Regexp) bool {
+func MatchRef(str *[]byte, reg *Regexp) bool {
 	// reg := Compile(re)
 
 	// return reg.Match(str, pcre.UTF8)
@@ -613,7 +615,7 @@ func MatchRef(str *[]byte, reg Regexp) bool {
 
 // Split splits a string, and keeps capture groups
 // Similar to JavaScript .split(/re/)
-func Split(str []byte, reg Regexp) [][]byte {
+func Split(str []byte, reg *Regexp) [][]byte {
 	// reg := Compile(re)
 
 	ind := reg.FindAllIndex(str, 0)
@@ -650,7 +652,7 @@ func Split(str []byte, reg Regexp) [][]byte {
 // SplitRef splits a string, and keeps capture groups
 // Similar to JavaScript .split(/re/)
 // Uses Pointers For Improved Performance
-func SplitRef(str *[]byte, reg Regexp) [][]byte {
+func SplitRef(str *[]byte, reg *Regexp) [][]byte {
 	// reg := Compile(re)
 
 	ind := reg.FindAllIndex(*str, 0)
