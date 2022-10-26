@@ -700,6 +700,7 @@ var regEscape11 pcre.Regexp = pcre.MustCompileJIT(`\[`, pcre.UTF8, pcre.CONFIG_J
 var regEscape12 pcre.Regexp = pcre.MustCompileJIT(`\]`, pcre.UTF8, pcre.CONFIG_JIT)
 var regEscape13 pcre.Regexp = pcre.MustCompileJIT(`\{`, pcre.UTF8, pcre.CONFIG_JIT)
 var regEscape14 pcre.Regexp = pcre.MustCompileJIT(`\}`, pcre.UTF8, pcre.CONFIG_JIT)
+var regEscape15 pcre.Regexp = pcre.MustCompileJIT(`\%`, pcre.UTF8, pcre.CONFIG_JIT)
 
 // Escape will escape regex special chars
 func Escape(re string) string {
@@ -717,6 +718,7 @@ func Escape(re string) string {
 	re = regEscape12.ReplaceAllString(re, `\]`, 0)
 	re = regEscape13.ReplaceAllString(re, `\{`, 0)
 	re = regEscape14.ReplaceAllString(re, `\}`, 0)
+	re = regEscape15.ReplaceAllString(re, `\%`, 0)
 
 	return re
 }
