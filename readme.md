@@ -23,7 +23,7 @@ This package uses the [go-pcre](https://github.com/GRbit/go-pcre) package for be
 ```go
 
 import (
-  "github.com/AspieSoft/go-regex/v3"
+  "github.com/AspieSoft/go-regex/v4"
 )
 
 // pre compile a regex into the cache
@@ -42,7 +42,7 @@ regex.Compile(`re %1 and %2 ... %{12}`, `param 1`, `param 2` ..., `param 12`);
 regex.Escape(`(.*)? \$ \\$ \\\$ regex hack failed`)
 
 // run a replace function (most advanced feature)
-regex.RepFunc(myByteArray, regex.Compile(`(?flags)re(capture group)`), func(data func(int) []byte) []byte {
+regex.Compile(`(?flags)re(capture group)`).RepFunc(myByteArray, func(data func(int) []byte) []byte {
   data(0) // get the string
   data(1) // get the first capture group
 
@@ -53,20 +53,23 @@ regex.RepFunc(myByteArray, regex.Compile(`(?flags)re(capture group)`), func(data
 }, true /* optional: if true, will not process a return output */)
 
 // run a simple light replace function
-regex.RepStr(myByteArray, regex.Compile(`re`), myReplacementByteArray)
+regex.Compile(`re`).RepStr(myByteArray, myReplacementByteArray)
 
 // return a bool if a regex matches a byte array
-regex.Match(myByteArray, regex.Compile(`re`))
+regex.Compile(`re`).Match(myByteArray)
 
 // split a byte array in a similar way to JavaScript
-regex.Split(myByteArray, regex.Compile(`re|(keep this and split like in JavaScript)`))
+regex.Compile(`re|(keep this and split like in JavaScript)`).Split(myByteArray)
 
 // a regex string is modified before compiling, to add a few other features
 `use \' in place of ` + "`" + ` to make things easier`
 `(?#This is a comment in regex)`
 
 // an alias of pcre.Regexp
-regex.Regexp
+regex.PCRE
+
+// direct access to compiled pcre.Regexp
+regex.Compile("re").RE
 
 
 // another helpful function
