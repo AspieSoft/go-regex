@@ -80,3 +80,15 @@ regex.JoinBytes("string", []byte("byte array"), 10, 'c', data(2))
 append(append(append(append([]byte("string"), []byte("byte array")...), []byte(strconv.Itoa(10))...), 'c'), data(2)...)
 
 ```
+
+## Optional
+
+For a more *verbose* version of this module, with longer function names.
+
+```go
+
+  import (
+    "github.com/AspieSoft/go-regex/v4/verbose"
+  )
+
+```

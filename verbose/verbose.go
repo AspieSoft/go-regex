@@ -1,11 +1,8 @@
 package regex
 
 import (
-	"bufio"
 	"bytes"
-	"fmt"
 	"math"
-	"os/exec"
 	"reflect"
 	"strconv"
 	"strings"
@@ -67,18 +64,6 @@ func init() {
 	}()
 }
 
-// AutoInstallLinuxDependencies will automatically detect and install dependencies if missing from debian or arch linux
-// debian: libpcre3-dev
-// arch: pcre-dev
-func AutoInstallLinuxDependencies(){
-	man := getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
-	if man == "apt-get" || man == "apt" {
-		installLinuxPkg([]string{`libpcre3-dev`}, man)
-	}else if man == "yum" {
-		installLinuxPkg([]string{`pcre-dev`}, man)
-	}
-}
-
 // JoinBytes is an easy way to join multiple values into a single []byte
 // accepts: []byte, byte, int32, string, [][]byte, int, int64, float64, float32
 func JoinBytes(bytes ...interface{}) []byte {
@@ -109,37 +94,6 @@ func JoinBytes(bytes ...interface{}) []byte {
 	}
 	return res
 }
-
-// An easy way to join multiple values with different types, into a single value with one type
-// accepts: []byte, byte, int32, string, [][]byte, int, int64, float64, float32
-/* func Join[T str](bytes ...interface{}) T {
-	res := []byte{}
-	for _, b := range bytes {
-		switch reflect.TypeOf(b) {
-		case varType["byteArray"]:
-			res = append(res, b.([]byte)...)
-		case varType["byte"]:
-			res = append(res, b.(byte))
-		case varType["int32"]:
-			res = append(res, byte(b.(int32)))
-		case varType["string"]:
-			res = append(res, []byte(b.(string))...)
-		case varType["byteArrayArray"]:
-			for _, v := range b.([][]byte) {
-				res = append(res, v...)
-			}
-		case varType["int"]:
-			res = append(res, []byte(strconv.Itoa(b.(int)))...)
-		case varType["int64"]:
-			res = append(res, []byte(strconv.Itoa(int(b.(int64))))...)
-		case varType["float64"]:
-			res = append(res, []byte(strconv.FormatFloat(b.(float64), 'f', -1, 64))...)
-		case varType["float32"]:
-			res = append(res, []byte(strconv.FormatFloat(float64(b.(float32)), 'f', -1, 32))...)
-		}
-	}
-	return T(res)
-} */
 
 func setCache(re string, reg *Regexp) {
 	cache.Set(re, reg)
@@ -214,14 +168,9 @@ func Compile(re string, params ...string) *Regexp {
 	}
 }
 
-// An alias for Compile
-func Comp(re string, params ...string) *Regexp {
-	return Compile(re, params...)
-}
-
 // RepFunc replaces a string with the result of a function
 // similar to JavaScript .replace(/re/, function(data){})
-func (reg *Regexp) RepFunc(str []byte, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
+func (reg *Regexp) ReplaceFunc(str []byte, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
 	ind := reg.RE.FindAllIndex(str, 0)
 
 	res := []byte{}
@@ -283,7 +232,7 @@ func (reg *Regexp) RepFunc(str []byte, rep func(data func(int) []byte) []byte, b
 // RepFuncRef replace a string with the result of a function
 // similar to JavaScript .replace(/re/, function(data){})
 // Uses Pointers For Improved Performance
-func (reg *Regexp) RepFuncRef(str *[]byte, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
+func (reg *Regexp) ReplaceFuncPointer(str *[]byte, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
 	ind := reg.RE.FindAllIndex(*str, 0)
 
 	res := []byte{}
@@ -343,7 +292,7 @@ func (reg *Regexp) RepFuncRef(str *[]byte, rep func(data func(int) []byte) []byt
 }
 
 // RepFuncFirst is a copy of the RepFunc method modified to only run once
-func (reg *Regexp) RepFuncFirst(str []byte, rep func(func(int) []byte) []byte, blank ...bool) []byte {
+func (reg *Regexp) ReplaceFuncFirst(str []byte, rep func(func(int) []byte) []byte, blank ...bool) []byte {
 	pos := reg.RE.FindIndex(str, 0)
 
 	res := []byte{}
@@ -404,21 +353,21 @@ func (reg *Regexp) RepFuncFirst(str []byte, rep func(func(int) []byte) []byte, b
 
 // RepStr replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
-func (reg *Regexp) RepStr(str []byte, rep []byte) []byte {
+func (reg *Regexp) ReplaceString(str []byte, rep []byte) []byte {
 	return reg.RE.ReplaceAll(str, rep, 0)
 }
 
 // RepStrRef replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
 // Uses Pointers For Improved Performance
-func (reg *Regexp) RepStrRef(str *[]byte, rep []byte) []byte {
+func (reg *Regexp) ReplaceStringPointer(str *[]byte, rep []byte) []byte {
 	return reg.RE.ReplaceAll(*str, rep, 0)
 }
 
 // RepStrRefRes replaces a string with another string
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
 // Uses Pointers For Improved Performance (also on result)
-func (reg *Regexp) RepStrRefRes(str *[]byte, rep *[]byte) []byte {
+func (reg *Regexp) ReplaceStringPointerWithResultPointer(str *[]byte, rep *[]byte) []byte {
 	return reg.RE.ReplaceAll(*str, *rep, 0)
 }
 
@@ -426,7 +375,7 @@ func (reg *Regexp) RepStrRefRes(str *[]byte, rep *[]byte) []byte {
 // this function will replace things in the result like $1 with your capture groups
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
-func (reg *Regexp) RepStrComplex(str []byte, rep []byte) []byte {
+func (reg *Regexp) ReplaceStringComplex(str []byte, rep []byte) []byte {
 	ind := reg.RE.FindAllIndex(str, 0)
 
 	res := []byte{}
@@ -442,7 +391,7 @@ func (reg *Regexp) RepStrComplex(str []byte, rep []byte) []byte {
 		}
 		trim = pos[1]
 
-		r := regComplexSel.RepFunc(rep, func(data func(int) []byte) []byte {
+		r := regComplexSel.ReplaceFunc(rep, func(data func(int) []byte) []byte {
 			if len(data(1)) != 0 {
 				return data(0)
 			}
@@ -470,17 +419,12 @@ func (reg *Regexp) RepStrComplex(str []byte, rep []byte) []byte {
 	return res
 }
 
-// An alias for RepStrComplex
-func (reg *Regexp) RepStrComp(str []byte, rep []byte) []byte {
-	return reg.RepStrComplex(str, rep)
-}
-
 // RepStrComplexRef is a more complex version of the RepStrRef method
 // this function will replace things in the result like $1 with your capture groups
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
 // Uses Pointers For Improved Performance
-func (reg *Regexp) RepStrComplexRef(str *[]byte, rep []byte) []byte {
+func (reg *Regexp) ReplaceStringComplexPointer(str *[]byte, rep []byte) []byte {
 	ind := reg.RE.FindAllIndex(*str, 0)
 
 	res := []byte{}
@@ -496,7 +440,7 @@ func (reg *Regexp) RepStrComplexRef(str *[]byte, rep []byte) []byte {
 		}
 		trim = pos[1]
 
-		r := regComplexSel.RepFunc(rep, func(data func(int) []byte) []byte {
+		r := regComplexSel.ReplaceFunc(rep, func(data func(int) []byte) []byte {
 			if len(data(1)) != 0 {
 				return data(0)
 			}
@@ -522,11 +466,6 @@ func (reg *Regexp) RepStrComplexRef(str *[]byte, rep []byte) []byte {
 	res = append(res, (*str)[trim:]...)
 
 	return res
-}
-
-// An alias for RepStrComplexRef
-func (reg *Regexp) RepStrCompRef(str *[]byte, rep []byte) []byte {
-	return reg.RepStrComplexRef(str, rep)
 }
 
 // RepStrComplexRefRes is a more complex version of the RepStrRefRes method
@@ -534,7 +473,7 @@ func (reg *Regexp) RepStrCompRef(str *[]byte, rep []byte) []byte {
 // use $0 to use the full regex capture group
 // use ${123} to use numbers with more than one digit
 // Uses Pointers For Improved Performance (also on result)
-func (reg *Regexp) RepStrComplexRefRes(str *[]byte, rep *[]byte) []byte {
+func (reg *Regexp) ReplaceStringComplexPointerWithResultPointer(str *[]byte, rep *[]byte) []byte {
 	ind := reg.RE.FindAllIndex(*str, 0)
 
 	res := []byte{}
@@ -550,7 +489,7 @@ func (reg *Regexp) RepStrComplexRefRes(str *[]byte, rep *[]byte) []byte {
 		}
 		trim = pos[1]
 
-		r := regComplexSel.RepFunc(*rep, func(data func(int) []byte) []byte {
+		r := regComplexSel.ReplaceFunc(*rep, func(data func(int) []byte) []byte {
 			if len(data(1)) != 0 {
 				return data(0)
 			}
@@ -576,11 +515,6 @@ func (reg *Regexp) RepStrComplexRefRes(str *[]byte, rep *[]byte) []byte {
 	res = append(res, (*str)[trim:]...)
 
 	return res
-}
-
-// An alias for RepStrComplexRefRes
-func (reg *Regexp) RepStrCompRefRes(str *[]byte, rep *[]byte) []byte {
-	return reg.RepStrComplexRefRes(str, rep)
 }
 
 // Match returns true if a []byte matches a regex
@@ -590,7 +524,7 @@ func (reg *Regexp) Match(str []byte) bool {
 
 // MatchRef returns true if a string matches a regex
 // Uses Pointers For Improved Performance
-func (reg *Regexp) MatchRef(str *[]byte) bool {
+func (reg *Regexp) MatchPointer(str *[]byte) bool {
 	return reg.RE.Match(*str, 0)
 }
 
@@ -631,7 +565,7 @@ func (reg *Regexp) Split(str []byte) [][]byte {
 // SplitRef splits a string, and keeps capture groups
 // Similar to JavaScript .split(/re/)
 // Uses Pointers For Improved Performance
-func (reg *Regexp) SplitRef(str *[]byte) [][]byte {
+func (reg *Regexp) SplitPointer(str *[]byte) [][]byte {
 	ind := reg.RE.FindAllIndex(*str, 0)
 
 	res := [][]byte{}
@@ -704,115 +638,4 @@ func Escape(re string) string {
 // formatMemoryUsage converts bytes to megabytes
 func formatMemoryUsage(b uint64) float64 {
 	return math.Round(float64(b) / 1024 / 1024 * 100) / 100
-}
-
-
-func installLinuxPkg(pkg []string, man ...string){
-	if !hasLinuxPkg(pkg) {
-		var pkgMan string
-		if len(man) != 0 {
-			pkgMan = man[0]
-		}else{
-			pkgMan = getLinuxInstaller([]string{`apt-get`, `apt`, `yum`})
-		}
-
-		cmd := exec.Command(`sudo`, append([]string{pkgMan, `install`, `-y`}, pkg...)...)
-
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return
-		}
-
-		go (func() {
-			out := bufio.NewReader(stdout)
-			for {
-				s, err := out.ReadString('\n')
-				if err == nil {
-					fmt.Println(s)
-				}
-			}
-		})()
-
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			return
-		}
-
-		go (func() {
-			out := bufio.NewReader(stderr)
-			for {
-				s, err := out.ReadString('\n')
-				if err == nil {
-					fmt.Println(s)
-				}
-			}
-		})()
-
-		cmd.Run()
-	}
-}
-
-func hasLinuxPkg(pkg []string) bool {
-	for _, name := range pkg {
-		hasPackage := false
-		cmd := exec.Command(`dpkg`, `-s`, name)
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return true
-		}
-		go (func() {
-			out := bufio.NewReader(stdout)
-			for {
-				_, err := out.ReadString('\n')
-				if err == nil {
-					hasPackage = true
-				}
-			}
-		})()
-		for i := 0; i < 3; i++ {
-			cmd.Run()
-			if hasPackage {
-				break
-			}
-		}
-		if !hasPackage {
-			return false
-		}
-	}
-
-	return true
-}
-
-func getLinuxInstaller(man []string) string {
-	hasInstaller := ""
-
-	for _, m := range man {
-		cmd := exec.Command(`dpkg`, `-s`, m)
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			continue
-		}
-		go (func() {
-			out := bufio.NewReader(stdout)
-			for {
-				_, err := out.Peek(1)
-				if err == nil {
-					hasInstaller = m
-				}
-			}
-		})()
-
-		for i := 0; i < 3; i++ {
-			cmd.Run()
-			if hasInstaller != "" {
-				break
-			}
-		}
-
-		if hasInstaller != "" {
-			break
-		}
-	}
-
-	return hasInstaller
 }
