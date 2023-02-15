@@ -15,7 +15,7 @@ This package uses the [go-pcre](https://github.com/GRbit/go-pcre) package for be
 
   sudo apt-get install libpcre3-dev
 
-  go get github.com/AspieSoft/go-regex/v3
+  go get github.com/AspieSoft/go-regex/v4
 
 ```
 
