@@ -54,7 +54,7 @@ func init() {
 	// int32 returned instead of byte
 	varType["int32"] = reflect.TypeOf(' ')
 
-	regComplexSel = Compile(`(\\|)\$([0-9]|\{[0-9]+\})`)
+	regComplexSel = Comp(`(\\|)\$([0-9]|\{[0-9]+\})`)
 
 	go func(){
 		// clear cache items older than 10 minutes if there are only 200MB of free memory
@@ -153,8 +153,8 @@ func getCache(re string) (*Regexp, bool) {
 	return &Regexp{}, false
 }
 
-// Compile compiles a regular expression and store it in the cache
-func Compile(re string, params ...string) *Regexp {
+// An alias for Compile
+func Comp(re string, params ...string) *Regexp {
 	if strings.Contains(re, `\'`) {
 		r := []byte(re)
 		ind := regReReplaceQuote.FindAllIndex(r, 0)
@@ -214,9 +214,9 @@ func Compile(re string, params ...string) *Regexp {
 	}
 }
 
-// An alias for Compile
-func Comp(re string, params ...string) *Regexp {
-	return Compile(re, params...)
+// Compile compiles a regular expression and store it in the cache
+func Compile(re string, params ...string) *Regexp {
+	return Comp(re, params...)
 }
 
 // RepFunc replaces a string with the result of a function
