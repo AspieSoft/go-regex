@@ -597,6 +597,25 @@ func (reg *Regexp) SplitPointer(str *[]byte) [][]byte {
 	return res
 }
 
+var regValid pcre.Regexp = pcre.MustCompileJIT(`^((?:\(\?[\w]+\)|)(?:(?:[^?+*{}()[\]\\|]+|\\.|\[(?:\^?\\.|\^[^\\]|[^\\^])(?:[^\]\\]+|\\.)*\]|\((?:\?[:=!]|\?<[=!]|\?>)?(?1)??\)|\(\?(?:R|[+-]?\d+)\))(?:(?:[?+*]|\{\d+(?:,\d*)?\})[?+]?)?|\|)*)$`, pcre.UTF8, pcre.CONFIG_JIT)
+func IsValid(str []byte) bool {
+	if regValid.Match(str, 0) {
+		if _, err := pcre.CompileJIT(string(str), pcre.UTF8, pcre.CONFIG_JIT); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func IsValidPointer(str *[]byte) bool {
+	if regValid.Match(*str, 0) {
+		if _, err := pcre.CompileJIT(string(*str), pcre.UTF8, pcre.CONFIG_JIT); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
 var regEscape1 pcre.Regexp = pcre.MustCompileJIT(`\\`, pcre.UTF8, pcre.CONFIG_JIT)
 var regEscape2 pcre.Regexp = pcre.MustCompileJIT(`\^`, pcre.UTF8, pcre.CONFIG_JIT)
 var regEscape3 pcre.Regexp = pcre.MustCompileJIT(`\$`, pcre.UTF8, pcre.CONFIG_JIT)

@@ -139,3 +139,17 @@ func TestPerformance(t *testing.T) {
 		Compile(strconv.Itoa(rand.Int()))
 	}
 }
+
+func TestValid(t *testing.T) {
+	var check = func(re string, e bool) {
+		res := IsValid([]byte(re))
+		if res != e {
+			t.Error("[", string(re), "]\n", errors.New("result does not match expected result"))
+		}
+	}
+
+	check(`[\w_\-]+`, true)
+	check(`[\w_-.]+`, false)
+	check(`(?<test>)`, false)
+	check(`(?i)test`, true)
+}
