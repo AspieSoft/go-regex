@@ -10,19 +10,8 @@ import (
 )
 
 func TestCompile(t *testing.T) {
-	var check = func(s string) {
-		re1 := Comp(s)
-		re2 := Comp(s)
-		if re1.RE.Groups() != re2.RE.Groups() {
-			t.Error("[", s, "]\n", errors.New("first result does not match cache result"))
-		}
-	}
-
-	check("")
-	check("a(b)")
-
 	reC := Comp("this is test %1", "a")
-	if reC.RE.ReplaceAllString(`this is test a`, `this is test b`, 0) != `this is test b` {
+	if reC.RE.ReplaceAllString(`this is test a`, `this is test b`) != `this is test b` {
 		t.Error(`[this is test %1] [a]`, "\n", errors.New("failed to compile params"))
 	}
 
