@@ -13,7 +13,6 @@ type RegexpPCRE struct {
 }
 
 // CompTry tries to compile or returns an error
-// CompTry tries to compile or returns an error
 func pcreCompTry(re string, params ...string) (*RegexpPCRE, error) {
 	if strings.Contains(re, `\'`) {
 		r := []byte(re)

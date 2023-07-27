@@ -48,6 +48,10 @@ import (
 
   // re2 (go's builtin re2 method to avoid the `libpcre` dependency)
   "github.com/AspieSoft/go-regex/v5/re2"
+
+  // re2-opt (A mix of pcre with a fallback of re2)
+  // it is recommended you test if your code is compatable with re2 before switching to re2-opt which may use pcre for the performance benefit if it's available
+  "github.com/AspieSoft/go-regex/v5/re2-opt"
 )
 
 // this example will use verbose mode to make function names more clear
