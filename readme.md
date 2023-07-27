@@ -12,11 +12,27 @@ This package uses the [go-pcre](https://github.com/GRbit/go-pcre) package for be
 ## Installation
 
 ```shell script
+  go get github.com/AspieSoft/go-regex/v5
+```
 
-  sudo apt-get install libpcre3-dev
+## Dependencies
 
-  go get github.com/AspieSoft/go-regex/v4
+### Debian/Ubuntu (Linux)
 
+```shell script
+  sudo apt install libpcre3-dev
+```
+
+### Fedora (Linux)
+
+```shell script
+  sudo dnf install pcre-devel
+```
+
+### Arch (Linux)
+
+```shell script
+  sudo yum install pcre-dev
 ```
 
 ## Usage
@@ -24,8 +40,17 @@ This package uses the [go-pcre](https://github.com/GRbit/go-pcre) package for be
 ```go
 
 import (
-  "github.com/AspieSoft/go-regex/v4"
+  // default (pcre with short func names)
+  "github.com/AspieSoft/go-regex/v5"
+
+  // verbose (pcre with longer, more descriptive function names)
+  "github.com/AspieSoft/go-regex/v5/verbose"
+
+  // re2 (go's builtin re2 method to avoid the `libpcre` dependency)
+  "github.com/AspieSoft/go-regex/v5/re2"
 )
+
+// this example will use verbose mode to make function names more clear
 
 // pre compile a regex into the cache
 // this method also returns the compiled pcre.Regexp struct
@@ -34,7 +59,7 @@ regex.Compile(`re`)
 // compile a regex and safely escape user input
 regex.Compile(`re %1`, `this will be escaped .*`); // output: this will be escaped \.\*
 regex.Compile(`re %1`, `hello \n world`); // output: hello \\n world (note: the \ was escaped, and the n is literal)
-
+tree/v4.0.0
 // use %n to reference a param
 // use %{n} for param indexes with more than 1 digit
 regex.Compile(`re %1 and %2 ... %{12}`, `param 1`, `param 2` ..., `param 12`);
@@ -43,7 +68,7 @@ regex.Compile(`re %1 and %2 ... %{12}`, `param 1`, `param 2` ..., `param 12`);
 regex.Escape(`(.*)? \$ \\$ \\\$ regex hack failed`)
 
 // run a replace function (most advanced feature)
-regex.Compile(`(?flags)re(capture group)`).RepFunc(myByteArray, func(data func(int) []byte) []byte {
+regex.Compile(`(?flags)re(capture group)`).ReplaceFunc(myByteArray, func(data func(int) []byte) []byte {
   data(0) // get the string
   data(1) // get the first capture group
 
@@ -54,7 +79,7 @@ regex.Compile(`(?flags)re(capture group)`).RepFunc(myByteArray, func(data func(i
 }, true /* optional: if true, will not process a return output */)
 
 // run a simple light replace function
-regex.Compile(`re`).RepStr(myByteArray, myReplacementByteArray)
+regex.Compile(`re`).ReplaceString(myByteArray, myReplacementByteArray)
 
 // return a bool if a regex matches a byte array
 regex.Compile(`re`).Match(myByteArray)
@@ -66,10 +91,13 @@ regex.Compile(`re|(keep this and split like in JavaScript)`).Split(myByteArray)
 `use \' in place of ` + "`" + ` to make things easier`
 `(?#This is a comment in regex)`
 
-// an alias of pcre.Regexp
+// an alias of *pcre.Regexp
 regex.PCRE
 
-// direct access to compiled pcre.Regexp
+// an alias of *regexp.Regexp
+regex.RE2
+
+// direct access to compiled *pcre.Regexp (or *regexp.Regexp if used)
 regex.Compile("re").RE
 
 
@@ -77,19 +105,7 @@ regex.Compile("re").RE
 // this method makes it easier to return results to a regex function
 regex.JoinBytes("string", []byte("byte array"), 10, 'c', data(2))
 
-// the above method can be used in place of
+// the above method can be used in place of this one
 append(append(append(append([]byte("string"), []byte("byte array")...), []byte(strconv.Itoa(10))...), 'c'), data(2)...)
-
-```
-
-## Optional
-
-For a more *verbose* version of this module, with longer function names.
-
-```go
-
-  import (
-    "github.com/AspieSoft/go-regex/v4/verbose"
-  )
 
 ```

@@ -14,6 +14,9 @@ import (
 	"github.com/pbnjay/memory"
 )
 
+type PCRE *pcre.Regexp
+type RE2 *regexp.Regexp
+
 type Regexp struct {
 	RE *regexp.Regexp
 }
