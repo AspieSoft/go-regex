@@ -9,6 +9,8 @@ After calling a regex, the compiled output gets cached to improve performance.
 
 This package uses the [go-pcre](https://github.com/GRbit/go-pcre) package for better performance.
 
+If you need better compatability, checkout my other RE2 based module [go-regex-re2](https://github.com/AspieSoft/go-regex-re2).
+
 ## Installation
 
 ```shell script
