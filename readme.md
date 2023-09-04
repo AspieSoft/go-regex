@@ -42,18 +42,10 @@ If you need better compatability, checkout my other RE2 based module [go-regex-r
 ```go
 
 import (
-  // default (pcre with short func names)
-  "github.com/AspieSoft/go-regex/v5"
+  "github.com/AspieSoft/go-regex.v8"
 
-  // verbose (pcre with longer, more descriptive function names)
-  "github.com/AspieSoft/go-regex/v5/verbose"
-
-  // re2 (go's builtin re2 method to avoid the `libpcre` dependency)
-  "github.com/AspieSoft/go-regex/v5/re2"
-
-  // re2-opt (A mix of pcre with a fallback of re2)
-  // it is recommended you test if your code is compatable with re2 before switching to re2-opt which may use pcre for the performance benefit if it's available
-  "github.com/AspieSoft/go-regex/v5/re2-opt"
+  // or for verbose function names
+  "github.com/AspieSoft/go-regex.v8/verbose"
 )
 
 // this example will use verbose mode to make function names more clear
@@ -71,7 +63,17 @@ tree/v4.0.0
 regex.Compile(`re %1 and %2 ... %{12}`, `param 1`, `param 2` ..., `param 12`);
 
 // manually escape a string
+// note: the compile methods params are automatically escaped
 regex.Escape(`(.*)? \$ \\$ \\\$ regex hack failed`)
+
+// determine if a regex is valid, and can be compiled by this module
+regex.IsValid(`re`)
+
+// determine if a regex is valid, and can be compiled by the PCRE module
+regex.IsValidPCRE(`re`)
+
+// determine if a regex is valid, and can be compiled by the builtin RE2 module
+regex.IsValidRE2(`re`)
 
 // run a replace function (most advanced feature)
 regex.Compile(`(?flags)re(capture group)`).ReplaceFunc(myByteArray, func(data func(int) []byte) []byte {
@@ -84,8 +86,12 @@ regex.Compile(`(?flags)re(capture group)`).ReplaceFunc(myByteArray, func(data fu
   return nil
 }, true /* optional: if true, will not process a return output */)
 
+// run a replace function
+regex.Compile(`re (capture)`).ReplaceString(myByteArray, []byte("test $1"))
+
 // run a simple light replace function
-regex.Compile(`re`).ReplaceString(myByteArray, myReplacementByteArray)
+regex.Compile(`re`).ReplaceStringLiteral(myByteArray, []byte("all capture groups ignored (ie: $1)"))
+
 
 // return a bool if a regex matches a byte array
 regex.Compile(`re`).Match(myByteArray)
@@ -97,13 +103,13 @@ regex.Compile(`re|(keep this and split like in JavaScript)`).Split(myByteArray)
 `use \' in place of ` + "`" + ` to make things easier`
 `(?#This is a comment in regex)`
 
-// an alias of *pcre.Regexp
+// an alias of pcre.Regexp
 regex.PCRE
 
 // an alias of *regexp.Regexp
 regex.RE2
 
-// direct access to compiled *pcre.Regexp (or *regexp.Regexp if used)
+// direct access to compiled pcre.Regexp
 regex.Compile("re").RE
 
 

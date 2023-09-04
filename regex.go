@@ -3,159 +3,186 @@ package regex
 import (
 	"bytes"
 	"regexp"
+	"sort"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/AspieSoft/go-regex/v5/common"
+	"github.com/AspieSoft/go-regex.v8/common"
 	"github.com/AspieSoft/go-syncterval"
 	"github.com/AspieSoft/go-ttlcache"
 	"github.com/GRbit/go-pcre"
 	"github.com/pbnjay/memory"
 )
 
-type PCRE *pcre.Regexp
+type PCRE pcre.Regexp
 type RE2 *regexp.Regexp
 
 type Regexp struct {
-	RE *pcre.Regexp
+	RE pcre.Regexp
 }
 
-var regReReplaceQuote *pcre.Regexp
-var regReReplaceComment *pcre.Regexp
-var regReReplaceParam *pcre.Regexp
-var regValid *pcre.Regexp
+type bgPart struct {
+	ref []byte
+	b []byte
+}
 
-var regReReplaceQuoteRE2 *regexp.Regexp
-var regReReplaceCommentRE2 *regexp.Regexp
-var regReReplaceParamRE2 *regexp.Regexp
+var regCompCommentAndChars *regexp.Regexp = regexp.MustCompile(`(\\|)\(\?#.*?\)|%!|!%|\\[\\']`)
+var regCompParam *regexp.Regexp = regexp.MustCompile(`(\\|)%(\{[0-9]+\}|[0-9])`)
+var regCompBG *regexp.Regexp = regexp.MustCompile(`\[^?(\\[\\\]]|[^\]])+\]`)
+var regCompBGRefChar *regexp.Regexp = regexp.MustCompile(`%!|!%`)
+var regCompBGRef *regexp.Regexp = regexp.MustCompile(`%!([0-9]+|o|c)!%`)
 
-var regComplexSel interface{}
-var regEscape interface{}
+var regComplexSel *Regexp
+var regEscape *Regexp
 
-var regParamIndexCache *ttlcache.Cache[string, *pcre.Regexp] = ttlcache.New[string, *pcre.Regexp](2 * time.Hour, 1 * time.Hour)
 var cache *ttlcache.Cache[string, *Regexp] = ttlcache.New[string, *Regexp](2 * time.Hour, 1 * time.Hour)
+var compCache *ttlcache.Cache[string, []byte] = ttlcache.New[string, []byte](2 * time.Hour, 1 * time.Hour)
 
 func init() {
-	if re, err := pcre.CompileJIT(`\\[\\']`,  pcre.UTF8, pcre.CONFIG_JIT); err == nil {
-		regReReplaceQuote = &re
-	}else{
-		regReReplaceQuoteRE2 = regexp.MustCompile(`\\[\\']`)
-	}
-
-	if re, err := pcre.CompileJIT(`\(\?\#.*?\)`,  pcre.UTF8, pcre.CONFIG_JIT); err == nil {
-		regReReplaceComment = &re
-	}else{
-		regReReplaceCommentRE2 = regexp.MustCompile(`\(\?\#.*?\)`)
-	}
-
-	if re, err := pcre.CompileJIT(`(?<!\\)(%\{[0-9]+\}|%[0-9])`,  pcre.UTF8, pcre.CONFIG_JIT); err == nil {
-		regReReplaceParam = &re
-	}else{
-		regReReplaceParamRE2 = regexp.MustCompile(`(\\|)(%\{[0-9]+\}|%[0-9])`)
-	}
-
-	if re, err := pcre.CompileJIT(`^((?:\(\?[\w]+\)|)(?:(?:[^?+*{}()[\]\\|]+|\\.|\[(?:\^?\\.|\^[^\\]|[^\\^])(?:[^\]\\]+|\\.)*\]|\((?:\?[:=!]|\?<[=!]|\?>)?(?1)??\)|\(\?(?:R|[+-]?\d+)\))(?:(?:[?+*]|\{\d+(?:,\d*)?\})[?+]?)?|\|)*)$`,  pcre.UTF8, pcre.CONFIG_JIT); err == nil {
-		regValid = &re
-	}
-
-	if re, err := CompTry(`(\\|)\$([0-9]|\{[0-9]+\})`); err == nil {
-		regComplexSel = re
-	}else{
-		regComplexSel = re2Comp(`(\\|)\$([0-9]|\{[0-9]+\})`)
-	}
-
-	if re, err := CompTry(`[\\\^\$\.\|\?\*\+\(\)\[\]\{\}\%]`); err == nil {
-		regEscape = re
-	}else{
-		regEscape = re2Comp(`[\\\^\$\.\|\?\*\+\(\)\[\]\{\}\%]`)
-	}
+	regComplexSel = Comp(`(\\|)\$([0-9]|\{[0-9]+\})`)
+	regEscape = Comp(`[\\\^\$\.\|\?\*\+\(\)\[\]\{\}\%]`)
 
 	go func(){
 		// clear cache items older than 10 minutes if there are only 200MB of free memory
 		syncterval.New(10 * time.Second, func() {
 			if common.FormatMemoryUsage(memory.FreeMemory()) < 200 {
 				cache.ClearEarly(10 * time.Minute)
-				regParamIndexCache.ClearEarly(30 * time.Minute)
+				compCache.ClearEarly(5 * time.Minute)
 			}
 		})
 	}()
 }
 
-func setCache(re string, reg *Regexp) {
-	cache.Set(re, reg)
-}
-
-func getCache(re string) (*Regexp, bool) {
-	if val, ok := cache.Get(re); ok {
-		return val, true
-	}
-
-	return &Regexp{}, false
-}
-
-// Comp compiles a regular expression and store it in the cache
-func Comp(re string, params ...string) *Regexp {
-	if strings.Contains(re, `\'`) {
-		r := []byte(re)
-
-		var ind [][]int
-		if regReReplaceQuote != nil {
-			ind = regReReplaceQuote.FindAllIndex(r, 0)
-		}else{
-			ind = regReReplaceQuoteRE2.FindAllIndex(r, -1)
-		}
-
-		for i := len(ind) - 1; i >= 0; i-- {
-			if r[ind[i][1]-1] == '\'' {
-				r[ind[i][0]] = 0
-				r[ind[i][1]-1] = '`'
+// this method compiles the RE string to add more functionality to it
+func compRE(re string, params []string) string {
+	if val, ok := compCache.Get(re); ok {
+		return string(regCompParam.ReplaceAllFunc(val, func(b []byte) []byte {
+			if b[1] == '{' && b[len(b)-1] == '}' {
+				b = b[2:len(b)-1]
+			}else{
+				b = b[1:]
 			}
-		}
-
-		r = bytes.ReplaceAll(r, []byte{0}, []byte(""))
-		re = string(r)
-	}
-
-	if strings.Contains(re, `(?#`) {
-		if regReReplaceComment != nil {
-			re = regReReplaceComment.ReplaceAllString(re, ``, 0)
-		}else{
-			re = regReReplaceCommentRE2.ReplaceAllString(re, ``)
-		}
-	}
-
-	for i, v := range params {
-		var pRe string
-		ind := strconv.Itoa(i+1)
-		if len(ind) == 1 {
-			pRe = `(?<!\\)(%\{`+ind+`\}|%`+ind+`)`
-		} else {
-			pRe = `(?<!\\)(%\{`+ind+`\})`
-		}
-
-		var pReC pcre.Regexp
-		if cache, ok := regParamIndexCache.Get(pRe); ok {
-			pReC = *cache
-		}else{
-			pReC = pcre.MustCompileJIT(pRe, pcre.UTF8, pcre.CONFIG_JIT)
-		}
-
-		re = pReC.ReplaceAllString(re, Escape(v), 0)
-	}
-
-	if regReReplaceParam != nil {
-		re = regReReplaceParam.ReplaceAllString(re, ``, 0)
-	}else{
-		re = string(regReReplaceParamRE2.ReplaceAllFunc([]byte(re), func(b []byte) []byte {
-			if len(b) != 0 && b[0] == '\\' {
-				return b
+	
+			if n, e := strconv.Atoi(string(b)); e == nil && n > 0 && n <= len(params) {
+				return []byte(Escape(params[n-1]))
 			}
 			return []byte{}
 		}))
 	}
+	
+	reB := []byte(re)
 
-	if val, ok := getCache(re); ok {
+	reB = regCompCommentAndChars.ReplaceAllFunc(reB, func(b []byte) []byte {
+		if bytes.Equal(b, []byte("%!")) {
+			return []byte("%!o!%")
+		}else if bytes.Equal(b, []byte("!%")) {
+			return []byte("%!c!%")
+		}else if b[0] == '\\' {
+			if b[1] == '\'' {
+				return []byte{'`'}
+			}
+			return b
+		}
+		return []byte{}
+	})
+
+	bgList := [][]byte{}
+	reB = regCompBG.ReplaceAllFunc(reB, func(b []byte) []byte {
+		bgList = append(bgList, b)
+		return common.JoinBytes('%', '!', len(bgList)-1, '!', '%')
+	})
+
+	for ind, bgItem := range bgList {
+		charS := []byte{'['}
+		if bgItem[1] == '^' {
+			bgItem = bgItem[2:len(bgItem)-1]
+			charS = append(charS, '^')
+		}else{
+			bgItem = bgItem[1:len(bgItem)-1]
+		}
+
+		newBG := []bgPart{}
+		for i := 0; i < len(bgItem); i++ {
+			if i+1 < len(bgItem) {
+				if bgItem[i] == '\\' {
+					newBG = append(newBG, bgPart{ref: []byte{bgItem[i+1]}, b: []byte{bgItem[i], bgItem[i+1]}})
+					i++
+					continue
+				}else if bgItem[i+1] == '-' && i+2 < len(bgItem) {
+					newBG = append(newBG, bgPart{ref: []byte{bgItem[i], bgItem[i+2]}, b: []byte{bgItem[i], bgItem[i+1], bgItem[i+2]}})
+					i += 2
+					continue
+				}
+			}
+			newBG = append(newBG, bgPart{ref: []byte{bgItem[i]}, b: []byte{bgItem[i]}})
+		}
+
+		sort.Slice(newBG, func(i, j int) bool {
+			if len(newBG[i].ref) > len(newBG[j].ref) {
+				return true
+			}else if len(newBG[i].ref) < len(newBG[j].ref) {
+				return false
+			}
+
+			for k := 0; k < len(newBG[i].ref); k++ {
+				if newBG[i].ref[k] < newBG[j].ref[k] {
+					return true
+				}else if newBG[i].ref[k] > newBG[j].ref[k] {
+					return false
+				}
+			}
+
+			return false
+		})
+
+		bgItem = charS
+		for i := 0; i < len(newBG); i++ {
+			bgItem = append(bgItem, newBG[i].b...)
+		}
+		bgItem = append(bgItem, ']')
+
+		bgList[ind] = bgItem
+	}
+
+	reB = regCompBGRef.ReplaceAllFunc(reB, func(b []byte) []byte {
+		b = b[2:len(b)-2]
+
+		if b[0] == 'o' {
+			return []byte(`%!`)
+		}else if b[0] == 'c' {
+			return []byte(`!%`)
+		}
+
+		if n, e := strconv.Atoi(string(b)); e == nil && n < len(bgList) {
+			return bgList[n]
+		}
+		return []byte{}
+	})
+
+	compCache.Set(re, reB)
+
+	return string(regCompParam.ReplaceAllFunc(reB, func(b []byte) []byte {
+		if b[1] == '{' && b[len(b)-1] == '}' {
+			b = b[2:len(b)-1]
+		}else{
+			b = b[1:]
+		}
+
+		if n, e := strconv.Atoi(string(b)); e == nil && n > 0 && n <= len(params) {
+			return []byte(Escape(params[n-1]))
+		}
+		return []byte{}
+	}))
+}
+
+
+//* regex compile methods
+
+// Comp compiles a regular expression and store it in the cache
+func Comp(re string, params ...string) *Regexp {
+	re = compRE(re, params)
+
+	if val, ok := cache.Get(re); ok {
 		return val
 	} else {
 		reg := pcre.MustCompile(re, pcre.UTF8)
@@ -167,79 +194,18 @@ func Comp(re string, params ...string) *Regexp {
 		// reg := pcre.MustCompileJIT(re, pcre.JAVASCRIPT_COMPAT, pcre.STUDY_JIT_COMPILE)
 		// reg := pcre.MustCompileParseJIT(re, pcre.STUDY_JIT_COMPILE)
 
-		compRe := Regexp{RE: &reg}
+		compRe := Regexp{RE: reg}
 
-		go setCache(re, &compRe)
+		cache.Set(re, &compRe)
 		return &compRe
 	}
 }
 
 // CompTry tries to compile or returns an error
 func CompTry(re string, params ...string) (*Regexp, error) {
-	if strings.Contains(re, `\'`) {
-		r := []byte(re)
+	re = compRE(re, params)
 
-		var ind [][]int
-		if regReReplaceQuote != nil {
-			ind = regReReplaceQuote.FindAllIndex(r, 0)
-		}else{
-			ind = regReReplaceQuoteRE2.FindAllIndex(r, -1)
-		}
-
-		for i := len(ind) - 1; i >= 0; i-- {
-			if r[ind[i][1]-1] == '\'' {
-				r[ind[i][0]] = 0
-				r[ind[i][1]-1] = '`'
-			}
-		}
-
-		r = bytes.ReplaceAll(r, []byte{0}, []byte(""))
-		re = string(r)
-	}
-
-	if strings.Contains(re, `(?#`) {
-		if regReReplaceComment != nil {
-			re = regReReplaceComment.ReplaceAllString(re, ``, 0)
-		}else{
-			re = regReReplaceCommentRE2.ReplaceAllString(re, ``)
-		}
-	}
-
-	for i, v := range params {
-		var pRe string
-		ind := strconv.Itoa(i+1)
-		if len(ind) == 1 {
-			pRe = `(?<!\\)(%\{`+ind+`\}|%`+ind+`)`
-		} else {
-			pRe = `(?<!\\)(%\{`+ind+`\})`
-		}
-
-		var pReC pcre.Regexp
-		if cache, ok := regParamIndexCache.Get(pRe); ok {
-			pReC = *cache
-		}else{
-			var err error
-			pReC, err = pcre.CompileJIT(pRe, pcre.UTF8, pcre.CONFIG_JIT)
-			if err != nil {
-				return &Regexp{}, err
-			}
-		}
-
-		re = pReC.ReplaceAllString(re, Escape(v), 0)
-	}
-
-	if regReReplaceParam != nil {
-		re = regReReplaceParam.ReplaceAllString(re, ``, 0)
-	}else{
-		re = string(regReReplaceParamRE2.ReplaceAllFunc([]byte(re), func(b []byte) []byte {
-			if len(b) != 0 && b[0] == '\\' {
-				return b
-			}
-			return []byte{}
-		}))
-	}
-
-	if val, ok := getCache(re); ok {
+	if val, ok := cache.Get(re); ok {
 		return val, nil
 	} else {
 		reg, err := pcre.Compile(re, pcre.UTF8)
@@ -247,14 +213,25 @@ func CompTry(re string, params ...string) (*Regexp, error) {
 			return &Regexp{}, err
 		}
 
-		compRe := Regexp{RE: &reg}
+		// commented below methods compiled 10000 times in 0.1s (above method being used finished in half of that time)
+		// reg := pcre.MustCompileParse(re)
+		// reg := pcre.MustCompileJIT(re, pcre.UTF8, pcre.STUDY_JIT_COMPILE)
+		// reg := pcre.MustCompileJIT(re, pcre.EXTRA, pcre.STUDY_JIT_COMPILE)
+		// reg := pcre.MustCompileJIT(re, pcre.JAVASCRIPT_COMPAT, pcre.STUDY_JIT_COMPILE)
+		// reg := pcre.MustCompileParseJIT(re, pcre.STUDY_JIT_COMPILE)
 
-		go setCache(re, &compRe)
+		compRe := Regexp{RE: reg}
+
+		cache.Set(re, &compRe)
 		return &compRe, nil
 	}
 }
 
+
+//* regex methods
+
 // RepFunc replaces a string with the result of a function
+//
 // similar to JavaScript .replace(/re/, function(data){})
 func (reg *Regexp) RepFunc(str []byte, rep func(data func(int) []byte) []byte, blank ...bool) []byte {
 	ind := reg.RE.FindAllIndex(str, 0)
@@ -315,17 +292,21 @@ func (reg *Regexp) RepFunc(str []byte, rep func(data func(int) []byte) []byte, b
 	return res
 }
 
-// RepStr replaces a string with another string
+// RepStrLit replaces a string with another string
+//
 // note: this function is optimized for performance, and the replacement string does not accept replacements like $1
-func (reg *Regexp) RepStr(str []byte, rep []byte) []byte {
+func (reg *Regexp) RepStrLit(str []byte, rep []byte) []byte {
 	return reg.RE.ReplaceAll(str, rep, 0)
 }
 
-// RepStrComp is a more complex version of the RepStr method
+// RepStr is a more complex version of the RepStrLit method
+//
 // this function will replace things in the result like $1 with your capture groups
+//
 // use $0 to use the full regex capture group
+//
 // use ${123} to use numbers with more than one digit
-func (reg *Regexp) RepStrComp(str []byte, rep []byte) []byte {
+func (reg *Regexp) RepStr(str []byte, rep []byte) []byte {
 	ind := reg.RE.FindAllIndex(str, 0)
 
 	res := []byte{}
@@ -341,37 +322,19 @@ func (reg *Regexp) RepStrComp(str []byte, rep []byte) []byte {
 		}
 		trim = pos[1]
 
-		r := []byte{}
-		if reg, ok := regComplexSel.(*Regexp); ok {
-			r = reg.RepFunc(rep, func(data func(int) []byte) []byte {
-				if len(data(1)) != 0 {
-					return data(0)
-				}
-				n := data(2)
-				if len(n) > 1 {
-					n = n[1:len(n)-1]
-				}
-				if i, err := strconv.Atoi(string(n)); err == nil {
-					return m.Group(i)
-				}
-				return []byte{}
-			})
-		}else if reg, ok := regComplexSel.(*RegexpRE2); ok {
-			r = reg.RepFunc(rep, func(data func(int) []byte) []byte {
-				if len(data(1)) != 0 {
-					return data(0)
-				}
-				n := data(2)
-				if len(n) > 1 {
-					n = n[1:len(n)-1]
-				}
-				if i, err := strconv.Atoi(string(n)); err == nil {
-					return m.Group(i)
-				}
-				return []byte{}
-			})
-		}
-
+		r := regComplexSel.RepFunc(rep, func(data func(int) []byte) []byte {
+			if len(data(1)) != 0 {
+				return data(0)
+			}
+			n := data(2)
+			if len(n) > 1 {
+				n = n[1:len(n)-1]
+			}
+			if i, err := strconv.Atoi(string(n)); err == nil {
+				return m.Group(i)
+			}
+			return []byte{}
+		})
 
 		if r == nil {
 			res = append(res, str[trim:]...)
@@ -379,7 +342,6 @@ func (reg *Regexp) RepStrComp(str []byte, rep []byte) []byte {
 		}
 
 		res = append(res, r...)
-		
 	}
 
 	res = append(res, str[trim:]...)
@@ -393,6 +355,7 @@ func (reg *Regexp) Match(str []byte) bool {
 }
 
 // Split splits a string, and keeps capture groups
+//
 // Similar to JavaScript .split(/re/)
 func (reg *Regexp) Split(str []byte) [][]byte {
 	ind := reg.RE.FindAllIndex(str, 0)
@@ -427,25 +390,36 @@ func (reg *Regexp) Split(str []byte) [][]byte {
 }
 
 
-// IsValid will return true if a regex is valid and can compile
-func IsValid(str []byte) bool {
-	if regValid == nil || regValid.Match(str, 0) {
-		if _, err := pcre.CompileJIT(string(str), pcre.UTF8, pcre.CONFIG_JIT); err == nil {
-			return true
-		}
+//* other regex methods
+
+// Escape will escape regex special chars
+func Escape(re string) string {
+	return string(regEscape.RepStr([]byte(re), []byte(`\$1`)))
+}
+
+// IsValid will return true if a regex is valid and can be compiled by this module
+func IsValid(re string) bool {
+	re = compRE(re, []string{})
+	if _, err := pcre.Compile(re, pcre.UTF8); err == nil {
+		return true
 	}
 	return false
 }
 
-// Escape will escape regex special chars
-func Escape(re string) string {
-	if reg, ok := regEscape.(*Regexp); ok {
-		return string(reg.RepStrComp([]byte(re), []byte(`\$1`)))
-	}else if reg, ok := regEscape.(*RegexpRE2); ok {
-		return string(reg.RepStrComp([]byte(re), []byte(`\$1`)))
+// IsValidPCRE will return true if a regex is valid and can be compiled by the PCRE module
+func IsValidPCRE(re string) bool {
+	if _, err := pcre.Compile(re, pcre.UTF8); err == nil {
+		return true
 	}
+	return false
+}
 
-	return ""
+// IsValidRE2 will return true if a regex is valid and can be compiled by the builtin RE2 module
+func IsValidRE2(re string) bool {
+	if _, err := regexp.Compile(re); err == nil {
+		return true
+	}
+	return false
 }
 
 
