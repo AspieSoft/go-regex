@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/AspieSoft/go-regex.v8/common"
+	"github.com/AspieSoft/go-regex/v8/common"
 	"github.com/AspieSoft/go-syncterval"
 	"github.com/AspieSoft/go-ttlcache"
 	"github.com/GRbit/go-pcre"

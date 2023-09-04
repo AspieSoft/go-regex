@@ -3,8 +3,8 @@ package regex
 import (
 	"regexp"
 
-	"github.com/AspieSoft/go-regex.v8"
-	"github.com/AspieSoft/go-regex.v8/common"
+	"github.com/AspieSoft/go-regex/v8"
+	"github.com/AspieSoft/go-regex/v8/common"
 	"github.com/GRbit/go-pcre"
 )
 
