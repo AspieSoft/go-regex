@@ -14,7 +14,7 @@ If you need better compatability, checkout my other RE2 based module [go-regex-r
 ## Installation
 
 ```shell script
-  go get github.com/AspieSoft/go-regex/v5
+  go get github.com/AspieSoft/go-regex/v8
 ```
 
 ## Dependencies
@@ -42,10 +42,10 @@ If you need better compatability, checkout my other RE2 based module [go-regex-r
 ```go
 
 import (
-  "github.com/AspieSoft/go-regex.v8"
+  "github.com/AspieSoft/go-regex/v8"
 
   // or for verbose function names
-  "github.com/AspieSoft/go-regex.v8/verbose"
+  "github.com/AspieSoft/go-regex/v8/verbose"
 )
 
 // this example will use verbose mode to make function names more clear
