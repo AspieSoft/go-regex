@@ -97,6 +97,7 @@ func JoinBytes(bytes ...interface{}) []byte {
 	return common.JoinBytes(bytes...)
 }
 
+
 // ReplaceFileString replaces a regex match with a new []byte in a file
 //
 // @all: if true, will replace all text matching @re,
