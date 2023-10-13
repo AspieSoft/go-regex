@@ -617,11 +617,11 @@ func RepFileStr(name string, re string, rep []byte, all bool, maxReSize ...int64
 	return nil
 }
 
-// RepFilleFunc replaces a regex match with the result of a callback function in a file
+// RepFileFunc replaces a regex match with the result of a callback function in a file
 //
 // @all: if true, will replace all text matching @re,
 // if false, will only replace the first occurrence
-func RepFilleFunc(name string, re string, rep func(data func(int) []byte) []byte, all bool, maxReSize ...int64) error {
+func RepFileFunc(name string, re string, rep func(data func(int) []byte) []byte, all bool, maxReSize ...int64) error {
 	stat, err := os.Stat(name)
 	if err != nil || stat.IsDir() {
 		return err
