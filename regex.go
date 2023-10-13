@@ -21,6 +21,7 @@ type RE2 *regexp.Regexp
 
 type Regexp struct {
 	RE pcre.Regexp
+	len int64
 }
 
 type bgPart struct {
@@ -196,7 +197,7 @@ func Comp(re string, params ...string) *Regexp {
 		// reg := pcre.MustCompileJIT(re, pcre.JAVASCRIPT_COMPAT, pcre.STUDY_JIT_COMPILE)
 		// reg := pcre.MustCompileParseJIT(re, pcre.STUDY_JIT_COMPILE)
 
-		compRe := Regexp{RE: reg}
+		compRe := Regexp{RE: reg, len: int64(len(re))}
 
 		cache.Set(re, &compRe)
 		return &compRe
@@ -222,7 +223,7 @@ func CompTry(re string, params ...string) (*Regexp, error) {
 		// reg := pcre.MustCompileJIT(re, pcre.JAVASCRIPT_COMPAT, pcre.STUDY_JIT_COMPILE)
 		// reg := pcre.MustCompileParseJIT(re, pcre.STUDY_JIT_COMPILE)
 
-		compRe := Regexp{RE: reg}
+		compRe := Regexp{RE: reg, len: int64(len(re))}
 
 		cache.Set(re, &compRe)
 		return &compRe, nil
@@ -435,14 +436,9 @@ func JoinBytes(bytes ...interface{}) []byte {
 //
 // @all: if true, will replace all text matching @re,
 // if false, will only replace the first occurrence
-func RepFileStr(name string, re string, rep []byte, all bool, maxReSize ...int64) error {
+func (reg *Regexp) RepFileStr(name string, rep []byte, all bool, maxReSize ...int64) error {
 	stat, err := os.Stat(name)
 	if err != nil || stat.IsDir() {
-		return err
-	}
-
-	reg, err := CompTry(re)
-	if err != nil {
 		return err
 	}
 
@@ -454,7 +450,7 @@ func RepFileStr(name string, re string, rep []byte, all bool, maxReSize ...int64
 
 	var found bool
 
-	l := int64(len(re) * 10)
+	l := int64(reg.len * 10)
 	if l < 1024 {
 		l = 1024
 	}
@@ -534,6 +530,14 @@ func RepFileStr(name string, re string, rep []byte, all bool, maxReSize ...int64
 				file.WriteAt(bw, j)
 				file.Sync()
 			}
+
+			if !all {
+				file.Sync()
+				file.Close()
+				return nil
+			}
+
+			i += int64(len(repRes))
 		}
 
 		i++
@@ -621,14 +625,9 @@ func RepFileStr(name string, re string, rep []byte, all bool, maxReSize ...int64
 //
 // @all: if true, will replace all text matching @re,
 // if false, will only replace the first occurrence
-func RepFileFunc(name string, re string, rep func(data func(int) []byte) []byte, all bool, maxReSize ...int64) error {
+func (reg *Regexp) RepFileFunc(name string, rep func(data func(int) []byte) []byte, all bool, maxReSize ...int64) error {
 	stat, err := os.Stat(name)
 	if err != nil || stat.IsDir() {
-		return err
-	}
-
-	reg, err := CompTry(re)
-	if err != nil {
 		return err
 	}
 
@@ -640,7 +639,7 @@ func RepFileFunc(name string, re string, rep func(data func(int) []byte) []byte,
 
 	var found bool
 
-	l := int64(len(re) * 10)
+	l := int64(reg.len * 10)
 	if l < 1024 {
 		l = 1024
 	}
@@ -720,6 +719,14 @@ func RepFileFunc(name string, re string, rep func(data func(int) []byte) []byte,
 				file.WriteAt(bw, j)
 				file.Sync()
 			}
+
+			if !all {
+				file.Sync()
+				file.Close()
+				return nil
+			}
+
+			i += int64(len(repRes))
 		}
 
 		i++
