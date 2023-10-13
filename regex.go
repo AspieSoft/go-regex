@@ -242,7 +242,7 @@ func (reg *Regexp) RepFunc(str []byte, rep func(data func(int) []byte) []byte, b
 	trim := 0
 	for _, pos := range ind {
 		v := str[pos[0]:pos[1]]
-		m := reg.RE.Matcher(v, 0)
+		m := reg.RE.NewMatcher(v, 0)
 
 		if len(blank) != 0 {
 			gCache := map[int][]byte{}
@@ -315,7 +315,7 @@ func (reg *Regexp) RepStr(str []byte, rep []byte) []byte {
 	trim := 0
 	for _, pos := range ind {
 		v := str[pos[0]:pos[1]]
-		m := reg.RE.Matcher(v, 0)
+		m := reg.RE.NewMatcher(v, 0)
 
 		if trim == 0 {
 			res = append(res, str[:pos[0]]...)
@@ -353,7 +353,7 @@ func (reg *Regexp) RepStr(str []byte, rep []byte) []byte {
 
 // Match returns true if a []byte matches a regex
 func (reg *Regexp) Match(str []byte) bool {
-	return reg.RE.Match(str, 0)
+	return reg.RE.MatchWFlags(str, 0)
 }
 
 // Split splits a string, and keeps capture groups
@@ -366,7 +366,7 @@ func (reg *Regexp) Split(str []byte) [][]byte {
 	trim := 0
 	for _, pos := range ind {
 		v := str[pos[0]:pos[1]]
-		m := reg.RE.Matcher(v, 0)
+		m := reg.RE.NewMatcher(v, 0)
 
 		if trim == 0 {
 			res = append(res, str[:pos[0]])
