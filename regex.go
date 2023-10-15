@@ -35,7 +35,6 @@ var regCompBGRef *regexp.Regexp = regexp.MustCompile(`%!([0-9]+|o|c)!%`)
 var regComplexSel *Regexp
 var regEscape *Regexp
 
-// var cache *ttlcache.Cache[string, *Regexp] = ttlcache.New[string, *Regexp](2 * time.Hour, 1 * time.Hour)
 var cache common.CacheMap[*Regexp] = common.NewCache[*Regexp]()
 var compCache common.CacheMap[[]byte] = common.NewCache[[]byte]()
 
