@@ -91,6 +91,7 @@ func compRE(re string, params []string) string {
 		if err != nil {
 			return ""
 		}
+
 		return string(regCompParam.ReplaceAllFunc(val, func(b []byte) []byte {
 			if b[1] == '{' && b[len(b)-1] == '}' {
 				b = b[2:len(b)-1]
@@ -221,6 +222,7 @@ func Comp(re string, params ...string) *Regexp {
 		if err != nil {
 			panic(err)
 		}
+
 		return val
 	}
 
@@ -247,6 +249,7 @@ func CompTry(re string, params ...string) (*Regexp, error) {
 		if err != nil {
 			return &Regexp{}, err
 		}
+
 		return val, nil
 	}
 
